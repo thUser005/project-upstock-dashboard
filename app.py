@@ -7,6 +7,9 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from pymongo import MongoClient, ReturnDocument
 from dotenv import load_dotenv
+import sys
+import threading
+import time as _time
 
 from gtt_order import place_gtt_order, cancel_gtt_order
 
@@ -52,6 +55,18 @@ def new_request_id() -> str:
     Replaces uuid.uuid4() completely.
     """
     return secrets.token_hex(16)  # 32-char hex string
+def shutdown_server():
+    """
+    Gracefully stop Flask server.
+    Works in dev / direct run.
+    In Docker / Railway → process exits.
+    """
+    func = request.environ.get("werkzeug.server.shutdown")
+    if func:
+        func()
+    else:
+        # fallback – force exit
+        os._exit(0)
 
 
 def today_key():
@@ -316,6 +331,45 @@ def api_list_gtt_orders():
             "error": str(e)
         }), 500
 
+# =====================================================
+# STOP SERVER (ADMIN / EMERGENCY)
+# =====================================================
+@app.route("/api/server/stop", methods=["POST", "GET"])
+def stop_server():
+    request_id = new_request_id()
+    data = get_request_data()
+
+    force = str(data.get("force", "false")).lower() == "true"
+
+    log_request(
+        request_id,
+        "stop_server",
+        {"force": force}
+    )
+
+    # optional safety check
+    if not force:
+        return jsonify({
+            "success": False,
+            "error": "Set force=true to stop server",
+            "request_id": request_id
+        }), 400
+
+    def delayed_shutdown():
+        _time.sleep(1)
+        shutdown_server()
+
+    # shutdown in background so response is sent
+    threading.Thread(target=delayed_shutdown).start()
+
+    resp = {
+        "success": True,
+        "message": "Server shutting down",
+        "request_id": request_id
+    }
+
+    log_response(request_id, "stop_server", resp)
+    return jsonify(resp)
 
 # =====================================================
 # CANCEL ALL ACTIVE GTT
