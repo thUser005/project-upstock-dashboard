@@ -217,12 +217,16 @@ def api_place_gtt():
         return jsonify(resp)
 
     except Exception as e:
-        log_error(request_id, "place_gtt", data, e)
+        err_msg = repr(e)
+        log_error(request_id, "place_gtt", data, err_msg)
+
         return jsonify({
             "success": False,
-            "error": str(e),
+            "error": "GTT placement failed",
+            "details": err_msg,
             "request_id": request_id
         }), 500
+
 
 
 # =====================================================
