@@ -27,7 +27,7 @@ CORS(app, resources={r"/api/*": {"origins": "*"}})
 UTC = timezone.utc
 IST = timezone(timedelta(hours=5, minutes=30))
 
-MAX_TRADES_PER_DAY = 2
+MAX_TRADES_PER_DAY = 4
 
 # -----------------------------------------------------
 # MONGODB CONFIG
