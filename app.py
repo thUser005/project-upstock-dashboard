@@ -5,7 +5,7 @@ from fastapi.templating import Jinja2Templates
 
 from services import fetch_mongo_data, fetch_live_ltp
 from calculations import calculate_breakout, trade_levels
-
+ 
 app = FastAPI(title="Options Dashboard")
 
 templates = Jinja2Templates(directory="templates")
