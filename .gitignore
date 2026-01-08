@@ -1,3 +1,5 @@
-keys.json
-.env 
+__pycache__/
+.env
 temp
+cache
+runtime
