@@ -84,7 +84,7 @@
 
       .ltp {
         font-weight: bold;
-        color: #38bdf8;
+        color: white;
         text-shadow: 0 0 8px rgba(56, 189, 248, 0.6);
       }
 
@@ -163,7 +163,7 @@
                 data-target="{{ r.target }}"
                 data-stoploss="{{ r.stoploss }}"
               >
-                <td>{{ r.expiry }}</td>
+                <td class="text-light">{{ r.expiry }}</td>
                 <td class="fw-bold text-info">{{ r.symbol }}</td>
                 <td>
                   {% if r.type == 'CE' %}
@@ -178,7 +178,7 @@
                 <td class="text-success fw-bold">{{ r.target }}</td>
                 <td class="text-danger fw-bold">{{ r.stoploss }}</td>
 
-                <td class="ltp">--</td>
+                <td class="ltp text-light">--</td>
                 <td><div class="status-box target-status">⬜</div></td>
                 <td><div class="status-box sl-status">⬜</div></td>
               </tr>
