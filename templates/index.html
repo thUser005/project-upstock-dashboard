@@ -15,9 +15,6 @@
         color: #e5e7eb;
       }
 
-      /* ===============================
-           STICKY TOP BAR
-        =============================== */
       .sticky-bar {
         position: sticky;
         top: 0;
@@ -27,9 +24,6 @@
         border-bottom: 3px solid #3b82f6;
       }
 
-      /* ===============================
-           CARD
-        =============================== */
       .card {
         background: #020617;
         border-radius: 12px;
@@ -44,9 +38,6 @@
         letter-spacing: 0.5px;
       }
 
-      /* ===============================
-           TABLE
-        =============================== */
       table {
         font-size: 14px;
         border-collapse: separate;
@@ -70,7 +61,6 @@
         border-bottom: 1px solid #334155;
       }
 
-      /* 🔥 THIS IS THE KEY FIX */
       tbody tr {
         background: #020617;
       }
@@ -83,49 +73,21 @@
         background: #020617;
       }
 
-      /* ✅ ROW SEPARATOR */
       tbody tr + tr td {
         border-top: 1px solid #475569;
       }
 
-      /* ✅ HOVER HIGHLIGHT */
       tbody tr:hover td {
         background: #020617;
         box-shadow: inset 0 0 0 9999px rgba(59, 130, 246, 0.08);
       }
 
-      /* ===============================
-           TEXT HIGHLIGHTS
-        =============================== */
       .ltp {
         font-weight: bold;
         color: #38bdf8;
         text-shadow: 0 0 8px rgba(56, 189, 248, 0.6);
       }
 
-      .text-info {
-        color: #60a5fa !important;
-      }
-
-      .text-warning {
-        color: #fbbf24 !important;
-      }
-
-      .text-primary {
-        color: #3b82f6 !important;
-      }
-
-      .text-success {
-        color: #22c55e !important;
-      }
-
-      .text-danger {
-        color: #ef4444 !important;
-      }
-
-      /* ===============================
-           STATUS BOX
-        =============================== */
       .status-box {
         background: linear-gradient(180deg, #000, #020617);
         padding: 6px 12px;
@@ -136,9 +98,6 @@
         box-shadow: inset 0 0 6px rgba(255, 255, 255, 0.08);
       }
 
-      /* ===============================
-           BUTTONS & TEXT
-        =============================== */
       .btn-index {
         margin: 0 6px;
         font-weight: bold;
@@ -159,26 +118,10 @@
   </head>
 
   <body>
-    <!-- 🔝 STICKY CONTROL BAR -->
     <div class="sticky-bar text-center">
-      <button
-        class="btn btn-warning btn-index"
-        onclick="scrollToSection('BANKNIFTY')"
-      >
-        BANKNIFTY
-      </button>
-      <button
-        class="btn btn-warning btn-index"
-        onclick="scrollToSection('NIFTY')"
-      >
-        NIFTY
-      </button>
-      <button
-        class="btn btn-warning btn-index"
-        onclick="scrollToSection('SENSEX')"
-      >
-        SENSEX
-      </button>
+      <button class="btn btn-warning btn-index" onclick="scrollToSection('BANKNIFTY')">BANKNIFTY</button>
+      <button class="btn btn-warning btn-index" onclick="scrollToSection('NIFTY')">NIFTY</button>
+      <button class="btn btn-warning btn-index" onclick="scrollToSection('SENSEX')">SENSEX</button>
       <div id="marketStatus" class="market-msg mt-2"></div>
     </div>
 
@@ -220,9 +163,8 @@
                 data-target="{{ r.target }}"
                 data-stoploss="{{ r.stoploss }}"
               >
-                <td class="text-light">{{ r.expiry }}</td>
+                <td>{{ r.expiry }}</td>
                 <td class="fw-bold text-info">{{ r.symbol }}</td>
-
                 <td>
                   {% if r.type == 'CE' %}
                   <span class="badge bg-success">CE</span>
@@ -236,7 +178,7 @@
                 <td class="text-success fw-bold">{{ r.target }}</td>
                 <td class="text-danger fw-bold">{{ r.stoploss }}</td>
 
-                <td class="ltp text-light">--</td>
+                <td class="ltp">--</td>
                 <td><div class="status-box target-status">⬜</div></td>
                 <td><div class="status-box sl-status">⬜</div></td>
               </tr>
@@ -284,12 +226,11 @@
         const stoploss = parseFloat(row.dataset.stoploss);
 
         try {
-          const res = await fetch(
-            `https://get-option-latest.up.railway.app/option/live/${optionId}`
-          );
+          // ✅ CALL YOUR FASTAPI PROXY (NOT RAILWAY DIRECTLY)
+          const res = await fetch(`/api/ltp/${optionId}`);
           const data = await res.json();
 
-          if (data && data.ltp !== undefined) {
+          if (data && data.ltp !== undefined && data.ltp !== null) {
             row.querySelector(".ltp").textContent = data.ltp;
 
             const targetBox = row.querySelector(".target-status");
@@ -319,7 +260,6 @@
         } catch (e) {
           console.error(optionId, e);
         } finally {
-          // ✅ Count this API call (success OR failure)
           ltpCurrent++;
           updateLtpCounter();
         }
@@ -340,12 +280,11 @@
           ltpCurrent = 0;
           ltpTotal = document.querySelectorAll("tr[data-option]").length;
           updateLtpCounter();
-
           document.querySelectorAll("tr[data-option]").forEach(fetchLTP);
         }
 
-        runLtpCycle(); // initial load
-        setInterval(runLtpCycle, 10000); // every 10 sec
+        runLtpCycle();
+        setInterval(runLtpCycle, 10000);
       }
 
       if (phase === "POST") {

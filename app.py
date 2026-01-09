@@ -133,3 +133,10 @@ async def dashboard(request: Request):
             "error": None
         }
     )
+
+
+@app.get("/api/ltp/{option_id}")
+async def ltp_proxy(option_id: str):
+    async with aiohttp.ClientSession(timeout=SESSION_TIMEOUT) as session:
+        ltp = await safe_fetch_ltp(option_id, session)
+        return {"ltp": ltp}
