@@ -1,5 +1,5 @@
 fastapi
-uvicorn
+uvicorn[standard]==0.30.5
 jinja2
 python-multipart
 upstox-python-sdk
