@@ -7,3 +7,4 @@ python-dotenv
 websocket-client
 requests
 protobuf
+pymongo
