@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Upstox Access Token</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Bootstrap -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"/>
+
+  <style>
+    body {
+      background: linear-gradient(135deg, #0f172a, #020617);
+      color: white;
+      min-height: 100vh;
+    }
+    .card {
+      background: #020617;
+      border-radius: 16px;
+      box-shadow: 0 0 40px rgba(0,0,0,0.5);
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #4361ee, #3a56d4);
+      border: none;
+    }
+  </style>
+</head>
+
+<body class="d-flex align-items-center justify-content-center">
+
+<div class="container">
+  <div class="row justify-content-center">
+    <div class="col-md-6">
+
+      <div class="card p-4">
+
+        <h3 class="text-center mb-4">🔐 Upstox Access Token</h3>
+
+        <!-- Mobile Number -->
+        <div class="mb-3">
+          <label class="form-label">Registered Mobile Number</label>
+          <div class="input-group">
+            <input type="text" id="mobileNumber" class="form-control" value="{{MOBILE_NUM}}" readonly>
+            <button class="btn btn-outline-light" onclick="copyMobile()">Copy</button>
+          </div>
+        </div>
+
+        <!-- Auth Button -->
+        <div class="d-grid mb-3">
+          <a href="https://account.upstox.com/developer/apps" target="_blank"
+             class="btn btn-primary btn-lg">
+            🔑 Open Upstox Login Page
+          </a>
+        </div>
+
+        <!-- Token Input -->
+        <div class="mb-3">
+          <label class="form-label">Paste Access Token</label>
+          <textarea id="tokenInput" class="form-control" rows="3"
+            placeholder="Paste your Upstox access token here..."></textarea>
+        </div>
+
+        <!-- Save Button -->
+        <div class="d-grid">
+          <button class="btn btn-success btn-lg" onclick="saveToken()">
+            💾 Save Access Token
+          </button>
+        </div>
+
+        <div class="text-center mt-3 text-muted">
+          After saving token, restart the server.
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+  <div id="toastMsg" class="toast align-items-center text-bg-dark border-0" role="alert">
+    <div class="d-flex">
+      <div class="toast-body" id="toastText"></div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    </div>
+  </div>
+</div>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+function showToast(msg) {
+  document.getElementById("toastText").innerText = msg;
+  const toast = new bootstrap.Toast(document.getElementById("toastMsg"));
+  toast.show();
+}
+
+function copyMobile() {
+  const input = document.getElementById("mobileNumber");
+  input.select();
+  document.execCommand("copy");
+  showToast("📋 Mobile number copied");
+}
+
+async function saveToken() {
+  const token = document.getElementById("tokenInput").value.trim();
+
+  if (token.length < 50) {
+    showToast("❌ Invalid token");
+    return;
+  }
+
+  const res = await fetch("/save-token", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ access_token: token })
+  });
+
+  const json = await res.json();
+
+  if (json.status === "success") {
+    showToast("✅ Token saved. Restart server.");
+  } else {
+    showToast("❌ " + json.message);
+  }
+}
+</script>
+
+</body>
+</html>

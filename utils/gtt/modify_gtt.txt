@@ -1,0 +1,46 @@
+
+🔴 Modify Only Stoploss
+modify_gtt_order(
+    gtt_order_id="GTT-C25280200137522",
+    quantity=1,
+    stoploss_price=7.1,
+    modify_stoploss=True
+)
+
+🟢 Modify Only Target
+modify_gtt_order(
+    gtt_order_id="GTT-C25280200137522",
+    quantity=1,
+    target_price=7.8,
+    modify_target=True
+)
+
+🔵 Modify Only Entry
+modify_gtt_order(
+    gtt_order_id="GTT-C25280200137522",
+    quantity=1,
+    entry_price=7.4,
+    modify_entry=True
+)
+
+🟡 Modify Entry + Stoploss
+modify_gtt_order(
+    gtt_order_id="GTT-C25280200137522",
+    quantity=1,
+    entry_price=7.35,
+    stoploss_price=7.15,
+    modify_entry=True,
+    modify_stoploss=True
+)
+
+🟣 Modify All Three
+modify_gtt_order(
+    gtt_order_id="GTT-C25280200137522",
+    quantity=1,
+    entry_price=7.3,
+    target_price=7.9,
+    stoploss_price=7.1,
+    modify_entry=True,
+    modify_target=True,
+    modify_stoploss=True
+)

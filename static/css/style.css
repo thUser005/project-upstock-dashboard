@@ -1,0 +1,380 @@
+
+      :root {
+        --profit-green: #00ff88;
+        --loss-red: #ff5555;
+        --call-orange: #ff9500;
+        --put-purple: #9d4edd;
+        --primary-blue: #4361ee;
+        --background-dark: #0a0a0f;
+        --card-dark: #1a1a2e;
+        --accent-teal: #00bbf9;
+        --warning-yellow: #ffd166;
+      }
+
+      body {
+        min-height: 100vh;
+        font-family:
+          "Segoe UI",
+          system-ui,
+          -apple-system,
+          sans-serif;
+        padding: 0 10%;
+      }
+
+      #selectedIndexLabel{
+        background-color: white;
+        border: solid black 2px;
+      }
+      .trading-card {
+        background: linear-gradient(145deg, #1a1a2e 0%, #16213e 100%);
+        border: 2px solid rgba(67, 97, 238, 0.2);
+        border-radius: 20px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        transition: all 0.3s ease;
+        margin: 2%;
+      }
+
+      .trading-card:hover {
+        border-color: rgba(67, 97, 238, 0.4);
+        box-shadow: 0 15px 40px rgba(67, 97, 238, 0.2);
+      }
+
+      /* Profit/Loss Color System */
+      .profit-glow {
+        background: linear-gradient(
+          135deg,
+          rgba(0, 255, 136, 0.15),
+          transparent
+        );
+        border-left: 5px solid var(--profit-green) !important;
+        color: var(--profit-green) !important;
+      }
+
+      .profit-text {
+        color: var(--profit-green) !important;
+        text-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
+      }
+
+      .loss-glow {
+        background: linear-gradient(
+          135deg,
+          rgba(255, 85, 85, 0.15),
+          transparent
+        );
+        border-left: 5px solid var(--loss-red) !important;
+        color: var(--loss-red) !important;
+      }
+
+      .loss-text {
+        color: var(--loss-red) !important;
+        text-shadow: 0 0 10px rgba(255, 85, 85, 0.3);
+      }
+
+      /* Call/Put Badges */
+      .call-badge {
+        background: linear-gradient(135deg, #ff9500, #ff7b00);
+        color: #000;
+        font-weight: 800;
+        font-size: 0.9rem;
+        padding: 8px 15px;
+        border-radius: 10px;
+        box-shadow: 0 4px 15px rgba(255, 149, 0, 0.3);
+      }
+
+      .put-badge {
+        background: linear-gradient(135deg, #9d4edd, #7b2cbf);
+        color: white;
+        font-weight: 800;
+        font-size: 0.9rem;
+        padding: 8px 15px;
+        border-radius: 10px;
+        box-shadow: 0 4px 15px rgba(157, 78, 221, 0.3);
+      }
+
+      /* Index Buttons */
+      .index-btn {
+        background: linear-gradient(135deg, #4361ee, #3a56d4);
+        border: none;
+        color: white;
+        font-weight: 700;
+        font-size: 1.1rem;
+        padding: 15px 30px;
+        border-radius: 15px;
+        transition: all 0.3s ease;
+        box-shadow: 0 6px 20px rgba(67, 97, 238, 0.3);
+      }
+
+      .index-btn:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 30px rgba(67, 97, 238, 0.5);
+      }
+
+      .index-btn.active {
+        box-shadow: 0 0 25px rgba(67, 97, 238, 0.8);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+      }
+
+      /* Instrument Rows */
+      .instrument-row {
+        background: rgba(255, 255, 255, 0.05);
+        border-left: 4px solid transparent;
+        transition: all 0.2s ease;
+        cursor: pointer;
+      }
+
+      .instrument-row:hover {
+        background: linear-gradient(
+          90deg,
+          rgba(67, 97, 238, 0.2),
+          rgba(67, 97, 238, 0.1)
+        );
+        transform: translateX(10px);
+        border-left: 4px solid var(--primary-blue);
+      }
+
+      .instrument-row.selected {
+        background: linear-gradient(
+          90deg,
+          rgba(67, 97, 238, 0.3),
+          rgba(67, 97, 238, 0.15)
+        );
+        border-left: 4px solid var(--accent-teal);
+        box-shadow: 0 0 15px rgba(67, 97, 238, 0.2);
+      }
+
+      /* Form Controls */
+      .trading-input {
+        background: rgba(0, 0, 0, 0.3);
+        border: 2px solid rgba(67, 97, 238, 0.3);
+        color: white;
+        font-weight: 600;
+        border-radius: 10px;
+        padding: 12px 15px;
+        transition: all 0.3s ease;
+      }
+
+      .trading-input:focus {
+        background: rgba(0, 0, 0, 0.5);
+        border-color: var(--primary-blue);
+        box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.25);
+        color: white;
+      }
+
+      /* Stat Cards */
+      .stat-card {
+        background: linear-gradient(
+          145deg,
+          rgba(67, 97, 238, 0.15),
+          rgba(157, 78, 221, 0.1)
+        );
+        border: 1px solid rgba(67, 97, 238, 0.2);
+        border-radius: 15px;
+        padding: 20px;
+        transition: all 0.3s ease;
+      }
+
+      .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px rgba(67, 97, 238, 0.2);
+        border-color: var(--primary-blue);
+      }
+
+      .stat-value {
+        font-size: 1.8rem;
+        font-weight: 800;
+        color: white;
+        text-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+      }
+
+      .stat-label {
+        font-size: 0.85rem;
+        color: #8a8aff;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        font-weight: 600;
+      }
+
+      /* Action Button */
+      .action-btn {
+        background: linear-gradient(135deg, #00ff88, #00cc6a);
+        border: none;
+        color: #000;
+        font-weight: 800;
+        font-size: 1.2rem;
+        padding: 18px 40px;
+        border-radius: 15px;
+        transition: all 0.3s ease;
+        box-shadow: 0 8px 25px rgba(0, 255, 136, 0.3);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
+      .action-btn:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 35px rgba(0, 255, 136, 0.5);
+        background: linear-gradient(135deg, #00ff88, #00ff6a);
+      }
+
+      /* P&L Table */
+      .pnl-table {
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 15px;
+        overflow: hidden;
+      }
+
+      .pnl-table th {
+        background: linear-gradient(135deg, #4361ee, #3a56d4);
+        color: white;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        padding: 15px;
+      }
+
+      /* Progress Bar */
+      .pnl-progress {
+        height: 12px;
+        border-radius: 10px;
+        background: rgba(255, 85, 85, 0.2);
+        overflow: hidden;
+      }
+
+      .pnl-progress .profit-bar {
+        background: linear-gradient(90deg, #00ff88, #00cc6a);
+        box-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+      }
+
+      .pnl-progress .loss-bar {
+        background: linear-gradient(90deg, #ff5555, #cc4444);
+        box-shadow: 0 0 10px rgba(255, 85, 85, 0.5);
+      }
+
+      /* Headers */
+      .section-header {
+        color: white;
+        font-weight: 700;
+        position: relative;
+        padding-bottom: 10px;
+        margin-bottom: 25px;
+      }
+
+      .section-header::after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 60px;
+        height: 4px;
+        background: linear-gradient(90deg, #4361ee, #9d4edd);
+        border-radius: 2px;
+      }
+      /* Compact Header Index Selector */
+      .header-bar {
+        position: sticky;
+        top: 10px;
+        z-index: 999;
+        background: linear-gradient(135deg, #0b1025, #0f1b3d);
+        border: 2px solid rgba(0, 255, 136, 0.25);
+      }
+
+      /* Header Index Toggle */
+      .index-box {
+        padding: 10px 26px;
+        border-radius: 14px;
+        border: 2px solid rgba(0, 255, 136, 0.6);
+        background: rgba(0, 255, 136, 0.05);
+        color: #00ff88;
+        font-weight: 800;
+        font-size: 1rem;
+        letter-spacing: 1px;
+        transition: all 0.25s ease;
+        box-shadow: inset 0 0 0 1px rgba(0, 255, 136, 0.15);
+      }
+
+      /* Hover */
+      .index-box:hover {
+        background: rgba(0, 255, 136, 0.15);
+        box-shadow: 0 0 12px rgba(0, 255, 136, 0.4);
+        transform: translateY(-1px);
+      }
+
+      /* Active (Selected Index) */
+      .index-box.active {
+        background: white;
+        color: #000;
+        border: none;
+        box-shadow:
+          0 0 18px rgba(0, 255, 136, 0.9),
+          0 0 40px rgba(0, 204, 255, 0.6);
+      }
+
+      .index-box:not(.active) {
+        color: #7affc4;
+        background-color: white;
+        border-color: rgba(122, 255, 196, 0.6);
+      }
+
+      /* Toast */
+      .custom-toast {
+        background: linear-gradient(135deg, #00ff88, #4361ee);
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 10px 30px rgba(0, 255, 136, 0.3);
+      }
+
+      /* Balance Display */
+      .balance-display {
+        background: linear-gradient(
+          135deg,
+          rgba(0, 255, 136, 0.1),
+          rgba(67, 97, 238, 0.1)
+        );
+        border: 2px solid rgba(0, 255, 136, 0.3);
+        border-radius: 15px;
+        padding: 15px;
+      }
+
+      .balance-amount {
+        font-size: 2.2rem;
+        font-weight: 900;
+        background: linear-gradient(135deg, #00ff88, #4361ee);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        text-shadow: 0 0 20px rgba(67, 97, 238, 0.3);
+      }
+
+      /* Live LTP Indicator */
+      .ltp-indicator {
+        animation: pulse 2s infinite;
+        position: relative;
+      }
+
+      @keyframes pulse {
+        0% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.7;
+        }
+        100% {
+          opacity: 1;
+        }
+      }
+      @media (min-width: 992px) {
+        .container-local {
+          border: solid black 2px;
+          padding: 5%;
+          background-color: gray;
+        }
+      }
+
+      @media (max-width: 768px) {
+        .header-bar .row {
+          text-align: center;
+        }
+
+        .header-bar .col-md-3,
+        .header-bar .col-md-6 {
+          margin-bottom: 10px;
+        }
+      }

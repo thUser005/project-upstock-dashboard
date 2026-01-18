@@ -1,296 +1,439 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
   <head>
-    <title>Options Breakout Dashboard</title>
-
-    <!-- Bootstrap -->
+    <title>Upstox GTT Trading</title>
     <link
       href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
       rel="stylesheet"
     />
-
-    <style>
-      body {
-        background: linear-gradient(180deg, #0f172a, #020617);
-        color: #e5e7eb;
-      }
-
-      .sticky-bar {
-        position: sticky;
-        top: 0;
-        z-index: 1000;
-        background: linear-gradient(90deg, #1e3a8a, #020617);
-        padding: 14px;
-        border-bottom: 3px solid #3b82f6;
-      }
-
-      .card {
-        background: #020617;
-        border-radius: 12px;
-        border: 1px solid #334155;
-        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.55);
-      }
-
-      .card-header {
-        background: linear-gradient(90deg, #2563eb, #1e40af) !important;
-        border-bottom: 2px solid #60a5fa;
-        font-size: 15px;
-        letter-spacing: 0.5px;
-      }
-
-      table {
-        font-size: 14px;
-        border-collapse: separate;
-        border-spacing: 0;
-      }
-
-      thead th {
-        background: linear-gradient(180deg, #1e293b, #0f172a) !important;
-        color: #f8fafc !important;
-        border-bottom: 2px solid #475569 !important;
-        border-right: 1px solid #334155;
-        text-transform: uppercase;
-        font-size: 12px;
-        letter-spacing: 0.4px;
-      }
-
-      tbody td {
-        background: #020617;
-        color: #e5e7eb;
-        border-right: 1px solid #334155;
-        border-bottom: 1px solid #334155;
-      }
-
-      tbody tr {
-        background: #020617;
-      }
-
-      tbody tr:nth-child(odd) td {
-        background: #020617;
-      }
-
-      tbody tr:nth-child(even) td {
-        background: #020617;
-      }
-
-      tbody tr + tr td {
-        border-top: 1px solid #475569;
-      }
-
-      tbody tr:hover td {
-        background: #020617;
-        box-shadow: inset 0 0 0 9999px rgba(59, 130, 246, 0.08);
-      }
-
-      .ltp {
-        font-weight: bold;
-        color: white;
-        text-shadow: 0 0 8px rgba(56, 189, 248, 0.6);
-      }
-
-      .status-box {
-        background: linear-gradient(180deg, #000, #020617);
-        padding: 6px 12px;
-        border-radius: 8px;
-        font-size: 16px;
-        min-width: 44px;
-        border: 1px solid #475569;
-        box-shadow: inset 0 0 6px rgba(255, 255, 255, 0.08);
-      }
-
-      .btn-index {
-        margin: 0 6px;
-        font-weight: bold;
-        box-shadow: 0 0 14px rgba(250, 204, 21, 0.7);
-      }
-
-      .market-msg {
-        font-size: 14px;
-        color: #facc15;
-        font-weight: 600;
-      }
-
-      h3 {
-        color: #f8fafc;
-        text-shadow: 0 0 12px rgba(59, 130, 246, 0.7);
-      }
-    </style>
+    <link href="/static/css/style.css" rel="stylesheet" />
   </head>
 
   <body>
-    <div class="sticky-bar text-center">
-      <button class="btn btn-warning btn-index" onclick="scrollToSection('BANKNIFTY')">BANKNIFTY</button>
-      <button class="btn btn-warning btn-index" onclick="scrollToSection('NIFTY')">NIFTY</button>
-      <button class="btn btn-warning btn-index" onclick="scrollToSection('SENSEX')">SENSEX</button>
-      <div id="marketStatus" class="market-msg mt-2"></div>
-    </div>
-
-    <div class="container-fluid mt-4">
-      <h3 class="text-center mb-4">📊 Options Breakout Dashboard</h3>
-      <div class="text-center mb-3">
-        <span class="badge bg-info text-dark fs-6 px-3 py-2">
-          🔄 LTP Fetch Progress:
-          <span id="ltpCurrent">0</span> /
-          <span id="ltpTotal">0</span>
-        </span>
-      </div>
-
-      {% for index_name in ['BANKNIFTY','NIFTY','SENSEX'] %}
-      <div class="card mb-4" id="{{ index_name }}">
-        <div class="card-header text-white fw-bold">{{ index_name }}</div>
-
-        <div class="card-body p-0">
-          <table class="table text-center mb-0">
-            <thead>
-              <tr>
-                <th>Expiry</th>
-                <th>Option</th>
-                <th>Type</th>
-                <th>Breakout</th>
-                <th>Entry</th>
-                <th>Target</th>
-                <th>Stoploss</th>
-                <th>LTP</th>
-                <th>🎯 Target</th>
-                <th>🛑 SL</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for r in rows if r.index == index_name %}
-              <tr
-                data-option="{{ r.symbol }}"
-                data-type="{{ r.type }}"
-                data-target="{{ r.target }}"
-                data-stoploss="{{ r.stoploss }}"
+    <div class="container-local py-4">
+      <!-- HEADER -->
+      <div class="trading-card mb-4 sticky-top bg-dark header-bar">
+        <div class="card-body px-4 py-2">
+          <div class="row align-items-center">
+            <!-- LEFT: TITLE -->
+            <div class="col-md-6">
+              <h2 class="text-light">Selected Index:</h2>
+              <div
+                id="selectedIndexLabel"
+                class="text-info text-center text-danger fw-bold fs-3"
               >
-                <td class="text-light">{{ r.expiry }}</td>
-                <td class="fw-bold text-info">{{ r.symbol }}</td>
-                <td>
-                  {% if r.type == 'CE' %}
-                  <span class="badge bg-success">CE</span>
-                  {% else %}
-                  <span class="badge bg-danger">PE</span>
-                  {% endif %}
-                </td>
+                NIFTY
+              </div>
+            </div>
 
-                <td class="text-warning fw-semibold">{{ r.breakout }}</td>
-                <td class="text-primary fw-semibold">{{ r.entry }}</td>
-                <td class="text-success fw-bold">{{ r.target }}</td>
-                <td class="text-danger fw-bold">{{ r.stoploss }}</td>
-
-                <td class="ltp text-light">--</td>
-                <td><div class="status-box target-status">⬜</div></td>
-                <td><div class="status-box sl-status">⬜</div></td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+            <!-- RIGHT: BALANCE -->
+            <div class="col-md-3 text-end">
+              <div class="balance-display d-inline-block">
+                <div class="stat-label text-center mb-1">AVAILABLE BALANCE</div>
+                <div class="balance-amount" id="availableBalance">₹90,000</div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-      {% endfor %}
+
+      <div class="row g-4">
+        <div class="col-lg-12">
+          <!-- SEARCH AND INSTRUMENTS -->
+          <div class="trading-card mb-4">
+            <div class="card-body p-4">
+              <div
+                class="d-flex align-items-center justify-content-between mb-3"
+              >
+                <!-- LEFT: TITLE -->
+                <h3 class="section-header text-white m-0">
+                  Search Instruments
+                </h3>
+
+                <!-- RIGHT: INDEX SELECTOR -->
+                <div class="d-flex gap-3">
+                  <button id="btnNifty" class="index-box active">NIFTY</button>
+                  <button id="btnSensex" class="index-box">SENSEX</button>
+                </div>
+              </div>
+
+              <div class="input-group text-light input-group-lg mb-4">
+                <span
+                  class="input-group-text trading-input"
+                  style="border-right: none"
+                >
+                  <span style="color: #00ff88">🔍</span>
+                </span>
+                <input
+                  id="searchBox"
+                  class="form-control bg-light text-dark trading-input"
+                  placeholder="Enter strike price (e.g., 92900) or symbol..."
+                  type="text"
+                  style="border-left: none"
+                />
+              </div>
+
+              <!-- INSTRUMENTS TABLES -->
+              <div class="row g-4">
+                <!-- CALL OPTIONS -->
+                <div class="col-md-6">
+                  <div
+                    class="d-flex align-items-center justify-content-between mb-3"
+                  >
+                    <h4 class="text-white mb-0">Call Options</h4>
+                    <span class="call-badge">CE</span>
+                  </div>
+
+                  <!-- EXPIRY RADIO FILTER -->
+                  <div id="expiryFilters" class="mb-3"></div>
+                  <div
+                    class="table-responsive"
+                    style="max-height: 800px; overflow-y: auto"
+                  >
+                    <table class="table table-dark table-hover mb-0">
+                      <thead>
+                        <tr>
+                          <th class="text-light">Strike</th>
+                          <th class="text-light">Expiry</th>
+                          <th class="text-light">Lot</th>
+                          <th class="text-light"></th>
+                        </tr>
+                      </thead>
+                      <tbody id="ceBody">
+                        <tr>
+                          <td colspan="4" class="text-center text-muted py-5">
+                            <div class="py-3">
+                              <span style="color: #8a8aff"
+                                >Select index and start typing to
+                                search...</span
+                              >
+                            </div>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <!-- PUT OPTIONS -->
+                <div class="col-md-6">
+                  <div
+                    class="d-flex align-items-center justify-content-between mb-3"
+                  >
+                    <h4 class="text-white mb-0">Put Options</h4>
+                    <span class="put-badge">PE</span>
+                  </div>
+                  <div
+                    class="table-responsive"
+                    style="max-height: 800px; overflow-y: auto"
+                  >
+                    <table class="table table-dark table-hover mb-0">
+                      <thead>
+                        <tr>
+                          <th class="text-light">Strike</th>
+                          <th class="text-light">Expiry</th>
+                          <th class="text-light">Lot</th>
+                          <th class="text-light"></th>
+                        </tr>
+                      </thead>
+                      <tbody id="peBody">
+                        <tr>
+                          <td colspan="4" class="text-center text-muted py-5">
+                            <div class="py-3">
+                              <span style="color: #8a8aff"
+                                >Select index and start typing to
+                                search...</span
+                              >
+                            </div>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="row g-4">
+        <div class="col-lg-4">
+          <!-- TRADING CALCULATOR -->
+          <div class="trading-card mb-4">
+            <div class="card-body p-4">
+              <h3 class="section-header text-white">Trading Calculator</h3>
+              <div class="row g-3">
+                <div class="col-12">
+                  <div class="stat-card">
+                    <div class="stat-label text-center">Live LTP</div>
+                    <div class="stat-value" id="ltpValue">₹0.00</div>
+                  </div>
+                </div>
+                <div class="col-12">
+                  <div class="stat-card">
+                    <div class="stat-label text-center">Max Lots</div>
+                    <div class="stat-value" id="maxLots">0</div>
+                  </div>
+                </div>
+                <!-- <div class="col-12">
+                  <div class="stat-card">
+                    <div class="stat-label text-center">Margin Required</div>
+                    <div class="stat-value text-danger" id="marginRequired">
+                      ₹0
+                    </div>
+                  </div>
+                </div> -->
+                <div class="col-12">
+                  <div class="stat-card">
+                    <div class="stat-label text-center">Capital Required</div>
+                    <div class="stat-value" id="positionValue">₹0</div>
+                  </div>
+                </div>
+                <div class="col-12">
+                  <div class="stat-card">
+                    <div class="stat-label text-center">
+                      Capital Utilization
+                    </div>
+                    <div class="d-flex align-items-center">
+                      <div
+                        class="progress flex-grow-1 me-3"
+                        style="height: 10px"
+                      >
+                        <div
+                          class="progress-bar"
+                          id="capitalBar"
+                          style="
+                            width: 0%;
+                            background: linear-gradient(
+                              90deg,
+                              #ff9500,
+                              #ff7b00
+                            );
+                          "
+                        ></div>
+                      </div>
+                      <span class="stat-value fs-5" id="capitalPercent"
+                        >0%</span
+                      >
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-lg-8">
+          <!-- ORDER FORM -->
+          <div class="trading-card">
+            <div class="card-body p-4">
+              <h3 class="section-header text-white">Place GTT Order</h3>
+              <form id="gttForm">
+                <!-- SELECTED INSTRUMENT INFO -->
+                <div class="row g-3 mb-4">
+                  <div class="col-md-6">
+                    <label class="form-label text-light fw-bold"
+                      >Instrument Token</label
+                    >
+                    <input
+                      id="instrumentToken"
+                      name="instrument_token"
+                      class="form-control trading-input"
+                      placeholder="Will auto-fill from selection"
+                      readonly
+                    />
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label text-light fw-bold"
+                      >Lot Size</label
+                    >
+                    <input
+                      id="lotSize"
+                      class="form-control trading-input text-center"
+                      readonly
+                    />
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label text-light fw-bold"
+                      >Live LTP</label
+                    >
+                    <div
+                      class="trading-input text-center fw-bold ltp-indicator"
+                      id="liveLtpDisplay"
+                    >
+                      ₹0.00
+                    </div>
+                  </div>
+                </div>
+
+                <!-- QUANTITY AND PRICES -->
+                <div class="row g-4">
+                  <div class="col-md-3">
+                    <label class="form-label text-light fw-bold">Lots</label>
+                    <input
+                      type="number"
+                      id="lotsInput"
+                      class="form-control trading-input text-center"
+                      value="1"
+                      min="1"
+                      onchange="syncQuantityFromLots()"
+                    />
+                  </div>
+
+                  <div class="col-md-3">
+                    <label class="form-label text-light fw-bold"
+                      >Entry Price</label
+                    >
+                    <input
+                      id="entryPrice"
+                      type="number"
+                      step="0.05"
+                      name="entry_price"
+                      class="form-control trading-input text-center"
+                      placeholder="Auto from LTP"
+                      onchange="updateMarginCalculations()"
+                    />
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label text-light fw-bold"
+                      >Target Price</label
+                    >
+                    <input
+                      type="number"
+                      step="0.05"
+                      name="target_price"
+                      class="form-control trading-input text-center"
+                      placeholder="Set target"
+                    />
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label text-light fw-bold"
+                      >Stop Loss</label
+                    >
+                    <input
+                      type="number"
+                      step="0.05"
+                      name="stoploss_price"
+                      class="form-control trading-input text-center"
+                      placeholder="Set stop loss"
+                    />
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label text-light fw-bold"
+                      >Quantity</label
+                    >
+                    <input
+                      type="number"
+                      id="quantityInput"
+                      name="quantity"
+                      class="form-control trading-input text-center"
+                      readonly
+                    />
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label text-light fw-bold"
+                      >Instrument Id</label
+                    >
+                    <input
+                      type="text"
+                      id="insInput"
+                      class="form-control trading-input"
+                      readonly
+                    />
+                  </div>
+                </div>
+
+                <!-- SUBMIT BUTTON -->
+                <div class="text-center mt-5">
+                  <button type="submit" class="action-btn btn px-5">
+                    🚀 PLACE GTT ORDER
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="row g-4">
+        <div class="col-lg-12">
+          <!-- P&L PROJECTION -->
+          <div class="trading-card">
+            <div class="card-body p-4">
+              <h3 class="section-header text-white">P&L Projection</h3>
+              <div class="pnl-table mb-4">
+                <table class="table table-dark mb-0">
+                  <thead>
+                    <tr>
+                      <th>Price</th>
+                      <th>Points</th>
+                      <th>P&L</th>
+                    </tr>
+                  </thead>
+                  <tbody id="pnlBody">
+                    <tr>
+                      <td colspan="3" class="text-center py-4">
+                        <span class="text-muted"
+                          >Select an instrument to view P&L</span
+                        >
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="mt-4">
+                <div
+                  class="d-flex justify-content-between align-items-center mb-2"
+                >
+                  <div class="d-flex align-items-center">
+                    <div
+                      class="rounded-circle me-2"
+                      style="width: 12px; height: 12px; background: #00ff88"
+                    ></div>
+                    <span class="text-light fw-bold">Profit Zone</span>
+                  </div>
+                  <div class="d-flex align-items-center">
+                    <div
+                      class="rounded-circle me-2"
+                      style="width: 12px; height: 12px; background: #ff5555"
+                    ></div>
+                    <span class="text-light fw-bold">Loss Zone</span>
+                  </div>
+                </div>
+                <div class="pnl-progress">
+                  <div
+                    class="profit-bar"
+                    id="profitBar"
+                    style="width: 50%; height: 100%"
+                  ></div>
+                  <div
+                    class="loss-bar"
+                    id="lossBar"
+                    style="width: 50%; height: 100%"
+                  ></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <script>
-      let ltpCurrent = 0;
-      let ltpTotal = 0;
+    <!-- Toast Notification -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+      <div id="indexToast" class="toast custom-toast">
+        <div class="d-flex align-items-center">
+          <div class="toast-body text-white fw-bold" id="toastMsg"></div>
+          <button
+            type="button"
+            class="btn-close btn-close-white me-2"
+            data-bs-dismiss="toast"
+          ></button>
+        </div>
+      </div>
+    </div>
 
-      function updateLtpCounter() {
-        document.getElementById("ltpCurrent").textContent = ltpCurrent;
-        document.getElementById("ltpTotal").textContent = ltpTotal;
-      }
-
-      function getISTTime() {
-        const now = new Date();
-        const utc = now.getTime() + now.getTimezoneOffset() * 60000;
-        return new Date(utc + 5.5 * 60 * 60 * 1000);
-      }
-
-      function marketPhase() {
-        const now = getISTTime();
-        const h = now.getHours();
-        const m = now.getMinutes();
-
-        if (h < 9 || (h === 9 && m < 15)) return "PRE";
-        if (h > 15 || (h === 15 && m >= 30)) return "POST";
-        return "LIVE";
-      }
-
-      function scrollToSection(id) {
-        document.getElementById(id).scrollIntoView({ behavior: "smooth" });
-      }
-
-      async function fetchLTP(row) {
-        const optionId = row.dataset.option;
-        const type = row.dataset.type;
-        const target = parseFloat(row.dataset.target);
-        const stoploss = parseFloat(row.dataset.stoploss);
-
-        try {
-          // ✅ CALL YOUR FASTAPI PROXY (NOT RAILWAY DIRECTLY)
-          const res = await fetch(`/api/ltp/${optionId}`);
-          const data = await res.json();
-
-          if (data && data.ltp !== undefined && data.ltp !== null) {
-            row.querySelector(".ltp").textContent = data.ltp;
-
-            const targetBox = row.querySelector(".target-status");
-            const slBox = row.querySelector(".sl-status");
-
-            targetBox.textContent = "⬜";
-            slBox.textContent = "⬜";
-
-            if (type === "CE") {
-              if (data.ltp >= target) {
-                targetBox.textContent = "✔️";
-                targetBox.style.color = "lime";
-              } else if (data.ltp <= stoploss) {
-                slBox.textContent = "❌";
-                slBox.style.color = "red";
-              }
-            } else {
-              if (data.ltp <= target) {
-                targetBox.textContent = "✔️";
-                targetBox.style.color = "lime";
-              } else if (data.ltp >= stoploss) {
-                slBox.textContent = "❌";
-                slBox.style.color = "red";
-              }
-            }
-          }
-        } catch (e) {
-          console.error(optionId, e);
-        } finally {
-          ltpCurrent++;
-          updateLtpCounter();
-        }
-      }
-
-      const phase = marketPhase();
-      const statusBox = document.getElementById("marketStatus");
-
-      if (phase === "PRE") {
-        statusBox.textContent =
-          "⏳ Market opens at 09:15 IST – live prices not available yet";
-      }
-
-      if (phase === "LIVE") {
-        statusBox.textContent = "🟢 Market Live – prices updating";
-
-        function runLtpCycle() {
-          ltpCurrent = 0;
-          ltpTotal = document.querySelectorAll("tr[data-option]").length;
-          updateLtpCounter();
-          document.querySelectorAll("tr[data-option]").forEach(fetchLTP);
-        }
-
-        runLtpCycle();
-        setInterval(runLtpCycle, 10000);
-      }
-
-      if (phase === "POST") {
-        statusBox.textContent =
-          "🔒 Market closed – showing final data (no live updates)";
-      }
-    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/script.js"></script>
   </body>
 </html>

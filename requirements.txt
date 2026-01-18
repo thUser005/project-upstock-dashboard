@@ -1,5 +1,9 @@
 fastapi
 uvicorn
-aiohttp
 jinja2
-python-dateutil
+python-multipart
+upstox-python-sdk
+python-dotenv
+websocket-client
+requests
+protobuf

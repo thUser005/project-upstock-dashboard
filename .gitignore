@@ -1,5 +1,4 @@
-__pycache__/
-.env
 temp
-cache
-runtime
+.env
+data
+__pycache__
