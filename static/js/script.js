@@ -91,8 +91,7 @@ function connectLtpSocket(callback) {
     return;
   }
 
-  ltpSocket = new WebSocket("ws://localhost:8000/ws/ltp");
-
+  ltpSocket = new WebSocket(getWsBaseUrl() + "/ws/ltp");
   ltpSocket.onopen = function () {
     console.log("✅ LTP Socket Connected");
     if (callback) callback();
@@ -120,7 +119,7 @@ function connectLtpSocket(callback) {
 function connectBalanceSocket() {
   if (balanceSocket && balanceSocket.readyState === WebSocket.OPEN) return;
 
-  balanceSocket = new WebSocket("ws://localhost:8000/ws/balance");
+  balanceSocket = new WebSocket(getWsBaseUrl() + "/ws/balance");
 
   balanceSocket.onopen = function () {
     console.log("✅ Balance Socket Connected");
@@ -474,7 +473,6 @@ function selectInstrument(token, lotSize, tradingSymbol) {
     `₹${liveLtp.toFixed(2)}`;
   document.getElementById("ltpValue").innerHTML = `₹${liveLtp.toFixed(2)}`;
 
-
   // ✅ Default 1 lot
   document.getElementById("lotsInput").value = 1;
 
@@ -568,27 +566,29 @@ document.addEventListener("DOMContentLoaded", function () {
   resetTradingCalculator();
 });
 
-document.getElementById("gttForm").addEventListener("submit", async function (e) {
-  e.preventDefault(); // ❌ stop page refresh
+document
+  .getElementById("gttForm")
+  .addEventListener("submit", async function (e) {
+    e.preventDefault(); // ❌ stop page refresh
 
-  const form = e.target;
-  const formData = new FormData(form);
+    const form = e.target;
+    const formData = new FormData(form);
 
-  try {
-    const res = await fetch("/place-gtt", {
-      method: "POST",
-      body: formData,
-    });
+    try {
+      const res = await fetch("/place-gtt", {
+        method: "POST",
+        body: formData,
+      });
 
-    const json = await res.json();
+      const json = await res.json();
 
-    if (json.status === "success") {
-      showToast("✅ GTT Order Placed: " + json.gtt_order_id);
-    } else {
-      showToast("❌ " + json.message);
+      if (json.status === "success") {
+        showToast("✅ GTT Order Placed: " + json.gtt_order_id);
+      } else {
+        showToast("❌ " + json.message);
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("⚠ Server error while placing GTT");
     }
-  } catch (err) {
-    console.error(err);
-    showToast("⚠ Server error while placing GTT");
-  }
-});
+  });
