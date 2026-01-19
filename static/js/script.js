@@ -14,6 +14,27 @@ const CACHE_VERSION = "v2";
 // Dummy values
 let BALANCE = 0;
 
+// ----------------------------
+// SOCKET CLEANUP
+// ----------------------------
+function cleanupSockets() {
+  try {
+    if (ltpSocket && ltpSocket.readyState === WebSocket.OPEN) {
+      console.log("🔌 Closing LTP socket...");
+      ltpSocket.close();
+      ltpSocket = null;
+    }
+
+    if (balanceSocket && balanceSocket.readyState === WebSocket.OPEN) {
+      console.log("🔌 Closing Balance socket...");
+      balanceSocket.close();
+      balanceSocket = null;
+    }
+  } catch (err) {
+    console.warn("Socket cleanup failed", err);
+  }
+}
+
 function renderExpiryRadios(expiryList) {
   const container = document.getElementById("expiryFilters");
   if (!container) return;
@@ -85,16 +106,25 @@ function formatNumber(num) {
   return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
-function connectLtpSocket(callback) {
-  if (ltpSocket && ltpSocket.readyState === WebSocket.OPEN) {
-    if (callback) callback();
-    return;
+function connectLtpSocket(instrument, symbol) {
+  // Close previous socket if exists (when user selects new instrument)
+  if (ltpSocket) {
+    ltpSocket.close();
+    ltpSocket = null;
   }
 
   ltpSocket = new WebSocket(getWsBaseUrl() + "/ws/ltp");
+
   ltpSocket.onopen = function () {
-    console.log("✅ LTP Socket Connected");
-    if (callback) callback();
+    console.log("✅ LTP Socket Connected for", instrument);
+
+    // Send subscription immediately
+    ltpSocket.send(
+      JSON.stringify({
+        instrument: instrument,
+        symbol: symbol
+      })
+    );
   };
 
   ltpSocket.onmessage = function (event) {
@@ -105,7 +135,8 @@ function connectLtpSocket(callback) {
 
       document.getElementById("liveLtpDisplay").innerHTML =
         `₹${liveLtp.toFixed(2)}`;
-      document.getElementById("ltpValue").innerHTML = `₹${liveLtp.toFixed(2)}`;
+      document.getElementById("ltpValue").innerHTML =
+        `₹${liveLtp.toFixed(2)}`;
 
       updateMarginCalculations();
     }
@@ -114,7 +145,12 @@ function connectLtpSocket(callback) {
   ltpSocket.onerror = function (err) {
     console.error("❌ LTP Socket Error:", err);
   };
+
+  ltpSocket.onclose = function () {
+    console.warn("⚠ LTP socket closed");
+  };
 }
+
 
 function connectBalanceSocket() {
   if (balanceSocket && balanceSocket.readyState === WebSocket.OPEN) return;
@@ -459,29 +495,24 @@ function selectInstrument(token, lotSize, tradingSymbol) {
   document.getElementById("instrumentToken").value = token;
   document.getElementById("lotSize").value = lotSize;
   document.getElementById("insInput").value = tradingSymbol;
-  connectLtpSocket(() => {
-    ltpSocket.send(
-      JSON.stringify({
-        action: "subscribe",
-        instrument_key: token,
-        trading_symbol: tradingSymbol,
-      }),
-    );
-  });
+
+  // 🔥 new per-tab socket
+  connectLtpSocket(token, tradingSymbol);
 
   document.getElementById("liveLtpDisplay").innerHTML =
     `₹${liveLtp.toFixed(2)}`;
   document.getElementById("ltpValue").innerHTML = `₹${liveLtp.toFixed(2)}`;
 
-  // ✅ Default 1 lot
+  // Default 1 lot
   document.getElementById("lotsInput").value = 1;
 
-  // ✅ Auto calculate quantity
+  // Auto calculate quantity
   syncQuantityFromLots();
 
   updateMarginCalculations();
   searchInstrument(document.getElementById("searchBox").value);
 }
+
 
 // ----------------------------
 // P&L TABLE
@@ -592,3 +623,18 @@ document
       showToast("⚠ Server error while placing GTT");
     }
   });
+
+  // ----------------------------
+// AUTO UNSUBSCRIBE ON TAB CLOSE / REFRESH
+// ----------------------------
+window.addEventListener("beforeunload", function () {
+  cleanupSockets();
+});
+
+
+// heartbeat every 15 seconds
+setInterval(() => {
+  if (ltpSocket && ltpSocket.readyState === WebSocket.OPEN) {
+    ltpSocket.send(JSON.stringify({ type: "ping" }));
+  }
+}, 15000);

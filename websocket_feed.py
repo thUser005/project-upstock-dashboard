@@ -1,5 +1,6 @@
 import upstox_client
 import threading
+import time
 from config import api_client
 from live_ltp_manager import ltp_manager
 from groww_feed import start_alternative_feed
@@ -8,113 +9,149 @@ from groww_feed import start_alternative_feed
 class MarketFeed:
     def __init__(self):
         self.api_client = api_client
-        
-        # Initialize V3 Streamer
         self.streamer = upstox_client.MarketDataStreamerV3(self.api_client)
         self.connected = False
-        
         self.market_status = {}
 
-        # Link streamer
+        # retry config
+        self.max_retries = 3
+        self.retry_delay = 2  # seconds
+
         ltp_manager.set_streamer(self.streamer)
 
-        # Bind events
         self.streamer.on("open", self.on_open)
         self.streamer.on("message", self.on_message)
         self.streamer.on("error", self.on_error)
         self.streamer.on("close", self.on_close)
 
+    # -------------------------
+    # CONNECTION HANDLING
+    # -------------------------
+    def connect(self):
+        print("[MARKET] Connecting to Upstox feed...")
+
+        for attempt in range(1, self.max_retries + 1):
+            try:
+                self.streamer.connect()
+                return
+            except Exception as e:
+                print(f"[MARKET] Connection attempt {attempt} failed: {e}")
+                time.sleep(self.retry_delay * attempt)
+
+        print("[MARKET] Upstox feed unreachable → switching to Groww fallback")
+        self.activate_groww_fallback()
+
+    # -------------------------
+    # FEED EVENTS
+    # -------------------------
     def on_open(self):
         self.connected = True
-        print("✅ Upstox Market Feed Connected")
+        print("[MARKET] Upstox feed connected")
+
         if ltp_manager.subscribed:
             tokens = list(ltp_manager.subscribed)
-            print(f"📡 Resubscribing to existing tokens: {tokens}")
-            self.streamer.subscribe(tokens, "ltpc")
+            print(f"[MARKET] Resubscribing {len(tokens)} instruments")
+
+            try:
+                self.streamer.subscribe(tokens, "ltpc")
+            except Exception as e:
+                print(f"[MARKET] Resubscribe failed: {e}")
+                self.activate_groww_fallback()
 
     def on_message(self, message):
+        try:
+            if message.get("type") == "market_info":
+                self.handle_market_info(message.get("marketInfo", {}))
+                return
 
-        if message.get("type") == "market_info":
-            self.handle_market_info(message.get("marketInfo", {}))
-            return
+            if "feeds" not in message:
+                return
 
-        if "feeds" in message:
             for instrument, data in message["feeds"].items():
                 try:
                     if "ltpc" in data:
                         ltpc_data = data["ltpc"]
-
-                        ltp = ltpc_data.get("ltp")
-                        if not ltp or ltp == 0:
-                            ltp = ltpc_data.get("cp")
+                        ltp = ltpc_data.get("ltp") or ltpc_data.get("cp")
 
                         if ltp:
                             ltp_manager.update_ltp(instrument, float(ltp))
-                            return
+                            continue
 
-                        # 🔁 Fallback using trading_symbol
-                        print(f"⚠️ No LTP from Upstox for {instrument}, switching to Groww...")
-                        symbol = ltp_manager.get_trading_symbol(instrument) or instrument.split("|")[-1]
-                        price = start_alternative_feed(symbol)
+                    # fallback price
+                    symbol = (
+                        ltp_manager.get_trading_symbol(instrument)
+                        or instrument.split("|")[-1]
+                    )
 
-                        if price:
-                            ltp_manager.update_ltp(instrument, float(price))
+                    price = start_alternative_feed(symbol)
+                    if price:
+                        ltp_manager.update_ltp(instrument, float(price))
 
                 except Exception as e:
-                    print(f"❌ Feed error for {instrument}: {e}")
-                    print("🔁 Switching to Groww fallback...")
-                    symbol = ltp_manager.get_trading_symbol(instrument) or instrument.split("|")[-1]
+                    print(f"[MARKET] Feed parse error: {e}")
+                    symbol = (
+                        ltp_manager.get_trading_symbol(instrument)
+                        or instrument.split("|")[-1]
+                    )
                     start_alternative_feed(symbol)
 
-    def handle_market_info(self, info):
-        self.market_status = info.get("segmentStatus", {})
-        print("\n" + "="*40)
-        print("📊 MARKET STATUS VALIDATION")
-        print("="*40)
-
-        for segment, status in self.market_status.items():
-            indicator = "🔴" if "CLOSE" in status else "🟢"
-            print(f"{indicator} {segment.ljust(10)} : {status}")
-
-            if "CLOSE" in status:
-                for instrument in ltp_manager.subscribed:
-                    symbol = ltp_manager.get_trading_symbol(instrument) or instrument.split("|")[-1]
-                    print(f"🔁 Market closed for {segment}, using Groww fallback for {symbol}")
-                    start_alternative_feed(symbol)
-
-        print("="*40 + "\n")
+        except Exception as e:
+            print(f"[MARKET] Message handler crashed: {e}")
+            self.activate_groww_fallback()
 
     def on_error(self, error):
-        print(f"❌ Market Feed Error: {error}")
-        print("🔁 Switching to Groww fallback feed for all active symbols...")
-
-        for instrument in ltp_manager.subscribed:
-            symbol = ltp_manager.get_trading_symbol(instrument) or instrument.split("|")[-1]
-            start_alternative_feed(symbol)
+        print(f"[MARKET] Feed error → {error}")
+        self.connected = False
+        self.activate_groww_fallback()
 
     def on_close(self, close_status_code, close_msg):
+        print(f"[MARKET] Feed closed → {close_msg}")
         self.connected = False
-        print(f"🔌 Market Feed Closed: {close_status_code} - {close_msg}")
+        self.reconnect()
 
-        print("🔁 Switching to Groww fallback feed for all active symbols...")
+    # -------------------------
+    # MARKET INFO
+    # -------------------------
+    def handle_market_info(self, info):
+        self.market_status = info.get("segmentStatus", {})
+
+        open_markets = [k for k, v in self.market_status.items() if "OPEN" in v]
+        default_market = open_markets[0] if open_markets else "N/A"
+
+        print(f"[MARKET] Default Market : {default_market}")
+        print(f"[MARKET] Open Markets   : {', '.join(open_markets)}")
+
+        if not open_markets:
+            self.activate_groww_fallback()
+
+    # -------------------------
+    # FALLBACK HANDLER
+    # -------------------------
+    def activate_groww_fallback(self):
+        print("[MARKET] Activating Groww fallback feed")
+
         for instrument in ltp_manager.subscribed:
-            symbol = ltp_manager.get_trading_symbol(instrument) or instrument.split("|")[-1]
-            start_alternative_feed(symbol)
-
-    def connect(self):
-        try:
-            print("🔗 Connecting to Upstox Market Feed...")
-            self.streamer.connect()
-        except Exception as e:
-            print(f"❌ Connection attempt failed: {e}")
-            print("🔁 Switching to Groww fallback feed for all active symbols...")
-
-            for instrument in ltp_manager.subscribed:
-                symbol = ltp_manager.get_trading_symbol(instrument) or instrument.split("|")[-1]
+            try:
+                symbol = (
+                    ltp_manager.get_trading_symbol(instrument)
+                    or instrument.split("|")[-1]
+                )
                 start_alternative_feed(symbol)
+            except Exception as e:
+                print(f"[MARKET] Groww fallback failed for {instrument}: {e}")
+
+    # -------------------------
+    # AUTO RECONNECT
+    # -------------------------
+    def reconnect(self):
+        print("[MARKET] Attempting reconnect...")
+        time.sleep(2)
+        self.connect()
 
 
-# Singleton
+# -------------------------
+# BOOTSTRAP
+# -------------------------
 market_feed = MarketFeed()
 
 

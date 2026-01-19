@@ -291,18 +291,31 @@ async def websocket_balance(websocket: WebSocket):
 @app.websocket("/ws/ltp")
 async def websocket_ltp(websocket: WebSocket):
     await websocket.accept()
-    ltp_manager.add_client(websocket)
 
     try:
+        # First message must contain subscription info
+        data = await websocket.receive_json()
+
+        instrument = data.get("instrument")
+        trading_symbol = data.get("symbol")
+
+        if not instrument:
+            await websocket.close()
+            return
+
+        print(f"🔗 LTP WS Client subscribed to: {instrument}")
+
+        # Register this client with its instrument
+        ltp_manager.add_client(websocket, instrument, trading_symbol)
+
+        # Keep connection alive
         while True:
-            data = await websocket.receive_json()
-            if data["action"] == "subscribe":
-                ltp_manager.subscribe(
-                    data["instrument_key"],
-                    data.get("trading_symbol")
-                )
-                ltp_manager.subscribe(data["instrument_key"])
-    except:
+            await websocket.receive_text()
+
+    except Exception as e:
+        print("❌ LTP WS disconnected:", e)
+
+    finally:
         ltp_manager.remove_client(websocket)
 
 

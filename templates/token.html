@@ -67,6 +67,13 @@
           </button>
         </div>
 
+        <!-- Home Button -->
+        <div class="d-grid mt-3">
+          <a href="/" class="btn btn-outline-light btn-lg">
+            🏠 Go To Trading Dashboard
+          </a>
+        </div>
+
         <div class="text-center mt-3 text-muted">
           After saving token, restart the server.
         </div>
@@ -120,7 +127,13 @@ async function saveToken() {
   const json = await res.json();
 
   if (json.status === "success") {
-    showToast("✅ Token saved. Restart server.");
+    showToast("✅ Token saved. Restarting...");
+
+    // Auto redirect to home after 2 seconds
+    setTimeout(() => {
+      window.location.href = "/";
+    }, 2000);
+
   } else {
     showToast("❌ " + json.message);
   }
