@@ -1,6 +1,6 @@
 import asyncio
 import time
-from get_nse_bse import get_nse_last_candle, get_bse_last_candle
+from utils.get_nse_bse import get_nse_last_candle, get_bse_last_candle
 
 class CandleManager:
     def __init__(self):
