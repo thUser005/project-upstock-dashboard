@@ -35,6 +35,42 @@ function cleanupSockets() {
   }
 }
 
+// ----------------------------
+// FULL UI RESET (Safe Reset)
+// ----------------------------
+function resetAllInputsAndState() {
+  selectedInstrument = null;
+  liveLtp = 0;
+
+  // Clear inputs
+  const ids = [
+    "instrumentToken",
+    "insInput",
+    "lotSize",
+    "quantityInput",
+    "entryPrice",
+    "targetPrice",     // ✅ add
+    "stopLossPrice"    // ✅ add
+  ];
+
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = "";
+  });
+
+  // Reset lots to 1
+  const lotsInput = document.getElementById("lotsInput");
+  if (lotsInput) lotsInput.value = 1;
+
+  resetTradingCalculator();
+
+  // Clear selected rows highlight
+  document.querySelectorAll(".instrument-row.selected").forEach(row => {
+    row.classList.remove("selected");
+  });
+}
+
+
 function renderExpiryRadios(expiryList) {
   const container = document.getElementById("expiryFilters");
   if (!container) return;
@@ -243,27 +279,6 @@ function syncQuantityFromLots() {
 // ----------------------------
 // BUTTON HANDLING
 // ----------------------------
-document.getElementById("btnNifty").onclick = () => {
-  selectedIndex = "NIFTY";
-  highlightButton("btnNifty");
-  showToast("NIFTY 50 selected");
-  // Auto-search if there's already input
-  const searchText = document.getElementById("searchBox").value.trim();
-  if (searchText) {
-    searchInstrument(searchText);
-  }
-};
-
-document.getElementById("btnSensex").onclick = () => {
-  selectedIndex = "SENSEX";
-  highlightButton("btnSensex");
-  showToast("SENSEX selected");
-  // Auto-search if there's already input
-  const searchText = document.getElementById("searchBox").value.trim();
-  if (searchText) {
-    searchInstrument(searchText);
-  }
-};
 
 function highlightButton(id) {
   const niftyBtn = document.getElementById("btnNifty");
@@ -324,12 +339,7 @@ function autoSelectIndexFromStrike(keyword) {
 // ----------------------------
 // SEARCH - FIXED
 // ----------------------------
-document.getElementById("searchBox").addEventListener("input", function () {
-  if (throttleTimer) clearTimeout(throttleTimer);
-  throttleTimer = setTimeout(() => {
-    searchInstrument(this.value.trim());
-  }, 400);
-});
+
 
 function searchInstrument(keyword) {
   const ceBody = document.getElementById("ceBody");
@@ -490,28 +500,25 @@ function resetTradingCalculator() {
 // INSTRUMENT SELECTION
 // ----------------------------
 function selectInstrument(token, lotSize, tradingSymbol) {
+
+  // ✅ Reset previous selection first
+  resetAllInputsAndState();
+
   selectedInstrument = token;
 
   document.getElementById("instrumentToken").value = token;
   document.getElementById("lotSize").value = lotSize;
   document.getElementById("insInput").value = tradingSymbol;
 
-  // 🔥 new per-tab socket
   connectLtpSocket(token, tradingSymbol);
 
-  document.getElementById("liveLtpDisplay").innerHTML =
-    `₹${liveLtp.toFixed(2)}`;
-  document.getElementById("ltpValue").innerHTML = `₹${liveLtp.toFixed(2)}`;
-
-  // Default 1 lot
   document.getElementById("lotsInput").value = 1;
-
-  // Auto calculate quantity
   syncQuantityFromLots();
 
   updateMarginCalculations();
   searchInstrument(document.getElementById("searchBox").value);
 }
+
 
 
 // ----------------------------
@@ -591,11 +598,12 @@ function updateMarginCalculations() {
 // INITIALIZE
 // ----------------------------
 document.addEventListener("DOMContentLoaded", function () {
+  resetAllInputsAndState();   // ✅ reset on load
   loadInstruments();
-  connectBalanceSocket(); // ✅ LIVE BALANCE
+  connectBalanceSocket();
   highlightButton("btnNifty");
-  resetTradingCalculator();
 });
+
 
 document
   .getElementById("gttForm")
@@ -631,6 +639,38 @@ window.addEventListener("beforeunload", function () {
   cleanupSockets();
 });
 
+
+
+document.getElementById("btnNifty").onclick = () => {
+  resetAllInputsAndState();   // ✅ reset
+
+  selectedIndex = "NIFTY";
+  highlightButton("btnNifty");
+  showToast("NIFTY 50 selected");
+
+  const searchText = document.getElementById("searchBox").value.trim();
+  if (searchText) searchInstrument(searchText);
+};
+
+document.getElementById("btnSensex").onclick = () => {
+  resetAllInputsAndState();   // ✅ reset
+
+  selectedIndex = "SENSEX";
+  highlightButton("btnSensex");
+  showToast("SENSEX selected");
+
+  const searchText = document.getElementById("searchBox").value.trim();
+  if (searchText) searchInstrument(searchText);
+};
+
+document.getElementById("searchBox").addEventListener("input", function () {
+  resetAllInputsAndState();   // ✅ reset
+
+  if (throttleTimer) clearTimeout(throttleTimer);
+  throttleTimer = setTimeout(() => {
+    searchInstrument(this.value.trim());
+  }, 400);
+});
 
 // heartbeat every 15 seconds
 setInterval(() => {
