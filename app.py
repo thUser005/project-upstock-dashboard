@@ -28,6 +28,16 @@ from utils.gtt.get_gtt_order_details import get_gtt_order_details
 
 from datetime import datetime
 from config import gtt_collection
+import os,time,sys
+
+def restart_app():
+    time.sleep(2)
+    os.execv(sys.executable, [
+        sys.executable,
+        "-m", "uvicorn",
+        "app:app",
+        "--reload"
+    ])
 
 # -----------------------
 # UPSTOX CONFIG (UNCHANGED)
@@ -65,7 +75,6 @@ async def token_page():
         html = f.read()
     return html.replace("{{MOBILE_NUM}}", MOBILE_NUM)
 
-
 @app.post("/save-token")
 async def save_token(payload: dict = Body(...)):
     try:
@@ -73,11 +82,8 @@ async def save_token(payload: dict = Body(...)):
 
         if not token or len(token) < 50:
             return {"status": "error", "message": "Invalid access token"}
+
         update_access_token(token)
-      
-        def restart_app():
-            time.sleep(2)
-            os.execv(sys.executable, [sys.executable] + sys.argv)
 
         threading.Thread(target=restart_app, daemon=True).start()
 
@@ -91,6 +97,7 @@ async def save_token(payload: dict = Body(...)):
             "status": "error",
             "message": f"Token save failed: {str(e)}"
         }
+
 
 
 # -----------------------
