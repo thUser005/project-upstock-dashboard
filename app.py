@@ -20,7 +20,7 @@ from token_validator import is_token_valid,update_access_token
 from live_ltp_manager import ltp_manager
 from websocket_feed import start_market_feed 
 from utils.server_utils import restart_app
-
+from utils.live_candle_manager import candle_manager
 # ✅ Import GTT utility functions
 from utils.gtt.place_gtt_order import place_gtt_order
 from utils.gtt.modify_gtt_order import modify_gtt_order
@@ -315,6 +315,42 @@ async def websocket_ltp(websocket: WebSocket):
 
     finally:
         ltp_manager.remove_client(websocket)
+# -----------------------
+# NSE CANDLE WEBSOCKET
+# -----------------------
+@app.websocket("/ws/nse-candle")
+async def websocket_nse_candle(websocket: WebSocket):
+    await websocket.accept()
+    candle_manager.nse_clients.add(websocket)
+    print("🔗 NSE Candle WS connected")
+
+    try:
+        while True:
+            await websocket.receive_text()
+    except:
+        pass
+    finally:
+        candle_manager.nse_clients.remove(websocket)
+        print("❌ NSE Candle WS disconnected")
+
+
+# -----------------------
+# BSE CANDLE WEBSOCKET
+# -----------------------
+@app.websocket("/ws/bse-candle")
+async def websocket_bse_candle(websocket: WebSocket):
+    await websocket.accept()
+    candle_manager.bse_clients.add(websocket)
+    print("🔗 BSE Candle WS connected")
+
+    try:
+        while True:
+            await websocket.receive_text()
+    except:
+        pass
+    finally:
+        candle_manager.bse_clients.remove(websocket)
+        print("❌ BSE Candle WS disconnected")
 
 
 # -----------------------
@@ -344,6 +380,12 @@ async def startup_event():
 
     loop = asyncio.get_running_loop()
     ltp_manager.set_loop(loop)
+    candle_manager.set_loop(loop)
 
     start_market_feed()
-    print("🚀 Application and Market Feed initializing...")
+
+    # Start candle streams
+    loop.create_task(candle_manager.start_nse_stream())
+    loop.create_task(candle_manager.start_bse_stream())
+
+    print("🚀 Application, Market Feed & Candle Streams started...")

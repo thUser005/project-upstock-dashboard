@@ -7,6 +7,8 @@ let liveLtp = 0;
 let redirectingToToken = false;
 let ltpSocket = null;
 let balanceSocket = null;
+let indexSocket = null;
+let indexLivePrice = 0;
 
 const CACHE_KEY = "upstox_instruments_cache";
 const CACHE_VERSION = "v2";
@@ -20,19 +22,89 @@ let BALANCE = 0;
 function cleanupSockets() {
   try {
     if (ltpSocket && ltpSocket.readyState === WebSocket.OPEN) {
-      console.log("🔌 Closing LTP socket...");
       ltpSocket.close();
       ltpSocket = null;
     }
 
     if (balanceSocket && balanceSocket.readyState === WebSocket.OPEN) {
-      console.log("🔌 Closing Balance socket...");
       balanceSocket.close();
       balanceSocket = null;
+    }
+
+    if (indexSocket && indexSocket.readyState === WebSocket.OPEN) {
+      indexSocket.close();
+      indexSocket = null;
     }
   } catch (err) {
     console.warn("Socket cleanup failed", err);
   }
+}
+
+function connectIndexSocket(indexName) {
+  // Close old socket if exists
+  if (indexSocket) {
+    indexSocket.close();
+    indexSocket = null;
+  }
+
+  let wsPath = "";
+
+  if (indexName === "NIFTY") {
+    wsPath = "/ws/nse-candle";
+  } else if (indexName === "SENSEX") {
+    wsPath = "/ws/bse-candle";
+  }
+
+  indexSocket = new WebSocket(getWsBaseUrl() + wsPath);
+
+  indexSocket.onopen = function () {
+    showToast(`📡 ${indexName} live feed connected`);
+  };
+
+  indexSocket.onmessage = function (event) {
+    const data = JSON.parse(event.data);
+
+    if (data.price) {
+      indexLivePrice = data.price;
+
+      document.getElementById("indexLivePrice").innerHTML =
+        `₹${formatNumber(indexLivePrice.toFixed(2))}`;
+    }
+  };
+
+  indexSocket.onerror = function () {
+    showToast("⚠ Index feed connection error");
+  };
+
+  indexSocket.onclose = function () {
+    showToast("ℹ Index feed disconnected");
+  };
+}
+
+
+function updateDefaultOrderPrices() {
+  if (!liveLtp || liveLtp <= 0) return;
+
+  // Default logic
+  let entry = liveLtp + 3;
+  let target = entry + 5;
+  let stopLoss = entry - 20;
+
+  // Dynamic SL for small premium options
+  if (stopLoss <= 0 || stopLoss >= entry) {
+    const dynamicSL = liveLtp * 0.20;   // 20% of LTP
+    stopLoss = entry - dynamicSL;
+  }
+
+  // Final safety clamp
+  if (stopLoss < 0) stopLoss = 0.05;
+
+  // Set values in UI
+  document.getElementById("entryPrice").value = entry.toFixed(2);
+  document.getElementById("targetPrice").value = target.toFixed(2);
+  document.getElementById("stopLossPrice").value = stopLoss.toFixed(2);
+
+  updateMarginCalculations();
 }
 
 // ----------------------------
@@ -164,19 +236,23 @@ function connectLtpSocket(instrument, symbol) {
   };
 
   ltpSocket.onmessage = function (event) {
-    const data = JSON.parse(event.data);
+  const data = JSON.parse(event.data);
 
-    if (data.ltp) {
-      liveLtp = data.ltp;
+  if (data.ltp) {
+    liveLtp = data.ltp;
 
-      document.getElementById("liveLtpDisplay").innerHTML =
-        `₹${liveLtp.toFixed(2)}`;
-      document.getElementById("ltpValue").innerHTML =
-        `₹${liveLtp.toFixed(2)}`;
+    document.getElementById("liveLtpDisplay").innerHTML =
+      `₹${liveLtp.toFixed(2)}`;
+    document.getElementById("ltpValue").innerHTML =
+      `₹${liveLtp.toFixed(2)}`;
 
-      updateMarginCalculations();
-    }
-  };
+    // ✅ Auto update Entry / Target / Stoploss
+    updateDefaultOrderPrices();
+
+    updateMarginCalculations();
+  }
+};
+
 
   ltpSocket.onerror = function (err) {
     console.error("❌ LTP Socket Error:", err);
@@ -298,9 +374,10 @@ function highlightButton(id) {
     selectedIndex = "SENSEX";
   }
 
-  // Update label
-  label.innerText = `${selectedIndex}`;
+  // ✅ Only update index name text node (not span)
+  label.childNodes[0].textContent = selectedIndex + " ";
 }
+
 
 // ----------------------------
 // TOAST
@@ -510,14 +587,25 @@ function selectInstrument(token, lotSize, tradingSymbol) {
   document.getElementById("lotSize").value = lotSize;
   document.getElementById("insInput").value = tradingSymbol;
 
+  // ✅ Connect LTP socket
   connectLtpSocket(token, tradingSymbol);
 
+  // ✅ Default lots = 1
   document.getElementById("lotsInput").value = 1;
   syncQuantityFromLots();
 
+  // ✅ Auto-fill Entry / Target / SL after LTP arrives
+  setTimeout(() => {
+    updateDefaultOrderPrices();
+  }, 800);
+
+  // ✅ Update margin & PnL
   updateMarginCalculations();
+
+  // ✅ Re-render search highlight
   searchInstrument(document.getElementById("searchBox").value);
 }
+
 
 
 
@@ -598,11 +686,14 @@ function updateMarginCalculations() {
 // INITIALIZE
 // ----------------------------
 document.addEventListener("DOMContentLoaded", function () {
-  resetAllInputsAndState();   // ✅ reset on load
+  resetAllInputsAndState();
   loadInstruments();
   connectBalanceSocket();
   highlightButton("btnNifty");
+
+  connectIndexSocket("NIFTY");   // ✅ auto connect
 });
+
 
 
 document
@@ -642,26 +733,32 @@ window.addEventListener("beforeunload", function () {
 
 
 document.getElementById("btnNifty").onclick = () => {
-  resetAllInputsAndState();   // ✅ reset
+  resetAllInputsAndState();
 
   selectedIndex = "NIFTY";
   highlightButton("btnNifty");
   showToast("NIFTY 50 selected");
 
+  connectIndexSocket("NIFTY");   // ✅ start live feed
+
   const searchText = document.getElementById("searchBox").value.trim();
   if (searchText) searchInstrument(searchText);
 };
 
+
 document.getElementById("btnSensex").onclick = () => {
-  resetAllInputsAndState();   // ✅ reset
+  resetAllInputsAndState();
 
   selectedIndex = "SENSEX";
   highlightButton("btnSensex");
   showToast("SENSEX selected");
 
+  connectIndexSocket("SENSEX");  // ✅ start live feed
+
   const searchText = document.getElementById("searchBox").value.trim();
   if (searchText) searchInstrument(searchText);
 };
+
 
 document.getElementById("searchBox").addEventListener("input", function () {
   resetAllInputsAndState();   // ✅ reset
