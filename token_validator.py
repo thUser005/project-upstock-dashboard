@@ -1,5 +1,5 @@
 import requests
-from config import UPSTOX_ACCESS_TOKEN,SERIAL_NUM,MSG_API_URL
+from config import UPSTOX_ACCESS_TOKEN, SERIAL_NUM, MSG_API_URL
 
 
 def update_access_token(access_token: str):
@@ -21,6 +21,8 @@ def update_access_token(access_token: str):
         "Content-Type": "application/json"
     }
 
+    print("🔐 Updating access token to API...")
+
     try:
         response = requests.put(url, json=payload, headers=headers, timeout=10)
 
@@ -41,28 +43,22 @@ def update_access_token(access_token: str):
         return data
 
     except requests.exceptions.Timeout:
-        print("❌ Request timed out")
+        print("⏱ Token update request timed out")
 
     except requests.exceptions.ConnectionError:
-        print("❌ Connection error — API server unreachable")
+        print("🌐 Connection error — API server unreachable")
 
     except requests.exceptions.HTTPError as e:
-        print("❌ HTTP Error:", str(e))
+        print("❌ HTTP Error while updating token:", str(e))
         print("Response Body:", response.text)
 
     except requests.exceptions.RequestException as e:
-        print("❌ Request failed:", str(e))
+        print("❌ Token update request failed:", str(e))
 
     except Exception as e:
-        print("❌ Unexpected error:", str(e))
+        print("❌ Unexpected error while updating token:", str(e))
 
     return None
-
-
-# # Example usage
-# if __name__ == "__main__":
-#     new_token = "NEW_ACCESS_TOKEN_HERE"
-#     update_access_token(new_token)
 
 
 def is_token_valid():
@@ -73,16 +69,60 @@ def is_token_valid():
     }
 
     try:
+        print("🔍 Validating Upstox access token...")
+
         r = requests.get(url, headers=headers, timeout=10)
 
+        # ✅ Valid token
         if r.status_code == 200:
+            print("✅ Token is valid")
             return True, None
 
-        elif r.status_code == 401:
+        # ⚠ Maintenance window
+        if r.status_code == 423:
+            print("⚠ Upstox Funds API locked (maintenance window)")
+            print("ℹ Service hours: 5:30 AM – 12:00 AM IST")
+            return True, "⚠ Upstox service temporarily unavailable (maintenance window)"
+
+        # ❌ Token expired / invalid
+        if r.status_code == 401:
+            print("❌ Token expired or invalid")
             return False, "❌ Access Token Expired or Invalid. Please regenerate token."
 
-        else:
-            return False, f"⚠️ Token validation failed: {r.text}"
+        # 🔒 Forbidden / restricted
+        if r.status_code == 403:
+            print("🔒 Access forbidden — account restricted")
+            return False, "🔒 Access forbidden. Check Upstox account status."
+
+        # 🚫 Rate limit
+        if r.status_code == 429:
+            print("🚫 Rate limit exceeded")
+            return False, "🚫 Rate limit exceeded. Please slow down requests."
+
+        # 🔥 Server error
+        if r.status_code >= 500:
+            print("🔥 Upstox server error")
+            return False, "🔥 Upstox server error. Try again later."
+
+        # ⚠ Unexpected response
+        print("⚠ Unexpected token validation response")
+        print("Status Code:", r.status_code)
+        print("Response:", r.text)
+
+        return False, f"⚠ Token validation failed: {r.text}"
+
+    except requests.exceptions.Timeout:
+        print("⏱ Token validation request timed out")
+        return False, "⏱ Token validation timed out"
+
+    except requests.exceptions.ConnectionError:
+        print("🌐 Network error — cannot reach Upstox servers")
+        return False, "🌐 Network error — cannot reach Upstox servers"
+
+    except requests.exceptions.RequestException as e:
+        print("❌ Token validation request failed:", str(e))
+        return False, str(e)
 
     except Exception as e:
+        print("❌ Unexpected token validation error:", str(e))
         return False, str(e)

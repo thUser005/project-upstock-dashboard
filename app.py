@@ -19,6 +19,7 @@ from instruments import bootstrap_instruments, FILTERED_INSTRUMENTS, ALL_INSTRUM
 from token_validator import is_token_valid,update_access_token
 from live_ltp_manager import ltp_manager
 from websocket_feed import start_market_feed 
+from utils.server_utils import restart_app
 
 # ✅ Import GTT utility functions
 from utils.gtt.place_gtt_order import place_gtt_order
@@ -73,11 +74,8 @@ async def save_token(payload: dict = Body(...)):
 
         if not token or len(token) < 50:
             return {"status": "error", "message": "Invalid access token"}
+
         update_access_token(token)
-      
-        def restart_app():
-            time.sleep(2)
-            os.execv(sys.executable, [sys.executable] + sys.argv)
 
         threading.Thread(target=restart_app, daemon=True).start()
 
