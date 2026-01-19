@@ -7,12 +7,41 @@ let liveLtp = 0;
 let redirectingToToken = false;
 let ltpSocket = null;
 let balanceSocket = null;
+let autoPriceEnabled = true;
 
 const CACHE_KEY = "upstox_instruments_cache";
 const CACHE_VERSION = "v2";
 
 // Dummy values
 let BALANCE = 0;
+
+function updateDefaultOrderPrices() {
+  if (!autoPriceEnabled) return; // 🔒 Lock if user edited
+  if (!liveLtp || liveLtp <= 0) return;
+
+  let entry = liveLtp + 3;
+  let target = entry + 5;
+  let stopLoss = entry - 20;
+
+  // Dynamic SL for small premium options
+  if (stopLoss <= 0 || stopLoss >= entry) {
+    const dynamicSL = liveLtp * 0.2; // 20% of LTP
+    stopLoss = entry - dynamicSL;
+  }
+
+  // Final safety clamp
+  if (stopLoss < 0) stopLoss = 0.05;
+
+  const entryEl = document.getElementById("entryPrice");
+  const targetEl = document.getElementById("targetPrice");
+  const slEl = document.getElementById("stopLossPrice");
+
+  if (entryEl) entryEl.value = entry.toFixed(2);
+  if (targetEl) targetEl.value = target.toFixed(2);
+  if (slEl) slEl.value = stopLoss.toFixed(2);
+
+  updateMarginCalculations();
+}
 
 function renderExpiryRadios(expiryList) {
   const container = document.getElementById("expiryFilters");
@@ -106,6 +135,9 @@ function connectLtpSocket(callback) {
       document.getElementById("liveLtpDisplay").innerHTML =
         `₹${liveLtp.toFixed(2)}`;
       document.getElementById("ltpValue").innerHTML = `₹${liveLtp.toFixed(2)}`;
+
+      // ✅ Auto update Entry / Target / Stoploss
+      updateDefaultOrderPrices();
 
       updateMarginCalculations();
     }
@@ -454,11 +486,13 @@ function resetTradingCalculator() {
 // INSTRUMENT SELECTION
 // ----------------------------
 function selectInstrument(token, lotSize, tradingSymbol) {
+  autoPriceEnabled = true;
   selectedInstrument = token;
 
   document.getElementById("instrumentToken").value = token;
   document.getElementById("lotSize").value = lotSize;
   document.getElementById("insInput").value = tradingSymbol;
+
   connectLtpSocket(() => {
     ltpSocket.send(
       JSON.stringify({
@@ -469,15 +503,14 @@ function selectInstrument(token, lotSize, tradingSymbol) {
     );
   });
 
-  document.getElementById("liveLtpDisplay").innerHTML =
-    `₹${liveLtp.toFixed(2)}`;
-  document.getElementById("ltpValue").innerHTML = `₹${liveLtp.toFixed(2)}`;
-
-  // ✅ Default 1 lot
+  // Default 1 lot
   document.getElementById("lotsInput").value = 1;
-
-  // ✅ Auto calculate quantity
   syncQuantityFromLots();
+
+  // Auto-fill prices after LTP arrives
+  setTimeout(() => {
+    updateDefaultOrderPrices();
+  }, 800);
 
   updateMarginCalculations();
   searchInstrument(document.getElementById("searchBox").value);
@@ -561,9 +594,19 @@ function updateMarginCalculations() {
 // ----------------------------
 document.addEventListener("DOMContentLoaded", function () {
   loadInstruments();
-  connectBalanceSocket(); // ✅ LIVE BALANCE
+  connectBalanceSocket();
   highlightButton("btnNifty");
   resetTradingCalculator();
+
+  // 🔒 Lock auto pricing if user edits any field
+  ["entryPrice", "targetPrice", "stopLossPrice"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener("input", () => {
+        autoPriceEnabled = false;
+      });
+    }
+  });
 });
 
 document
