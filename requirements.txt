@@ -8,4 +8,4 @@ websocket-client
 requests
 protobuf
 pymongo
-aiohttp
+aiohttp 
