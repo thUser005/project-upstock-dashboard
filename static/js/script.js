@@ -710,7 +710,7 @@ window.addEventListener("beforeunload", function () {
         })
       );
       ltpSocket.close();
-    }
+    } 
 
     if (indexSocket && indexSocket.readyState === WebSocket.OPEN) {
       indexSocket.close();
