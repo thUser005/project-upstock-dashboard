@@ -5,6 +5,9 @@ from config import api_client
 from live_ltp_manager import ltp_manager
 from groww_feed import start_alternative_feed
 
+# ✅ Groww streaming poller
+from utils.groww_live import groww_poller
+
 
 class MarketFeed:
     def __init__(self):
@@ -77,7 +80,7 @@ class MarketFeed:
                             ltp_manager.update_ltp(instrument, float(ltp))
                             continue
 
-                    # fallback price
+                    # fallback price (single-shot safety)
                     symbol = (
                         ltp_manager.get_trading_symbol(instrument)
                         or instrument.split("|")[-1]
@@ -101,13 +104,11 @@ class MarketFeed:
 
     def on_error(self, error):
         print(f"[MARKET] Feed error → {error}")
-        self.connected = False
         self.activate_groww_fallback()
 
     def on_close(self, close_status_code, close_msg):
         print(f"[MARKET] Feed closed → {close_msg}")
-        self.connected = False
-        self.reconnect()
+        self.activate_groww_fallback()
 
     # -------------------------
     # MARKET INFO
@@ -130,18 +131,14 @@ class MarketFeed:
     def activate_groww_fallback(self):
         print("[MARKET] Activating Groww fallback feed")
 
-        for instrument in ltp_manager.subscribed:
-            try:
-                symbol = (
-                    ltp_manager.get_trading_symbol(instrument)
-                    or instrument.split("|")[-1]
-                )
-                start_alternative_feed(symbol)
-            except Exception as e:
-                print(f"[MARKET] Groww fallback failed for {instrument}: {e}")
+        # Stop Upstox reconnect storm
+        self.connected = False
+
+        # Start Groww streaming poller (runs forever)
+        groww_poller.start()
 
     # -------------------------
-    # AUTO RECONNECT
+    # AUTO RECONNECT (Upstox only)
     # -------------------------
     def reconnect(self):
         print("[MARKET] Attempting reconnect...")
