@@ -776,7 +776,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 });
-
+ 
 document
   .getElementById("gttForm")
   .addEventListener("submit", async function (e) {
