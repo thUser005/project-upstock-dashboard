@@ -8,6 +8,7 @@ let redirectingToToken = false;
 let ltpSocket = null;
 let balanceSocket = null;
 let autoPriceEnabled = true;
+let autoTradeMode = true;
 
 const CACHE_KEY = "upstox_instruments_cache";
 const CACHE_VERSION = "v2";
@@ -18,8 +19,84 @@ let BALANCE = 0;
 let indexSocket = null;
 let niftySpot = 0;
 let sensexSpot = 0;
-let lastIndexPrice = 0;   // 👈 add here
+let lastIndexPrice = 0; // 👈 add here
 
+function roundToTick(price) {
+  return Math.round(price / 0.05) * 0.05;
+}
+function updateRiskBox(entry, stopLoss, quantity) {
+  const riskPerLot = (entry - stopLoss) * quantity;
+  const risk = Math.round(riskPerLot);
+
+  const riskEl = document.getElementById("riskValue");
+  if (riskEl) {
+    riskEl.innerHTML = `₹${formatNumber(risk)}`;
+  }
+}
+
+function updateAutoTrade() {
+  if (!autoTradeMode) return;
+  if (!liveLtp || !selectedInstrument) return;
+
+  const lotSize = parseInt(document.getElementById("lotSize").value) || 0;
+  if (!lotSize || BALANCE <= 0) return;
+
+  const targetProfit =
+    parseInt(document.getElementById("targetProfitInput").value) || 1200;
+
+  // ENTRY = LTP + 2
+  let entry = liveLtp + 2;
+
+  // -----------------------------
+  // Decide reasonable target points
+  // -----------------------------
+  let targetPoints;
+  if (entry <= 3) targetPoints = 4;
+  else if (entry <= 10) targetPoints = 8;
+  else targetPoints = 15;
+
+  // -----------------------------
+  // Required quantity for target
+  // -----------------------------
+  const requiredQty = Math.ceil(targetProfit / targetPoints);
+  let lots = Math.ceil(requiredQty / lotSize);
+
+  // Capital limit
+  const maxLots = Math.floor(BALANCE / (entry * lotSize));
+  if (lots > maxLots) lots = maxLots;
+  if (lots < 1) return;
+
+  const quantity = lots * lotSize;
+
+  // -----------------------------
+  // Prices (3:1 RR)
+  // -----------------------------
+  let target = entry + targetPoints;
+  let stopLoss = entry - targetPoints / 3;
+
+  // Safety
+  if (stopLoss < 0.05) stopLoss = 0.05;
+
+  // -----------------------------
+  // ROUND TO TICK SIZE
+  // -----------------------------
+  entry = roundToTick(entry);
+  target = roundToTick(target);
+  stopLoss = roundToTick(stopLoss);
+
+  // -----------------------------
+  // APPLY VALUES
+  // -----------------------------
+  document.getElementById("entryPrice").value = entry.toFixed(2);
+  document.getElementById("targetPrice").value = target.toFixed(2);
+  document.getElementById("stopLossPrice").value = stopLoss.toFixed(2);
+
+  document.getElementById("lotsInput").value = lots;
+  syncQuantityFromLots();
+
+  updateMarginCalculations();
+  updateRiskBox(entry, stopLoss, quantity);
+}
 
 function connectIndexSocket() {
   if (indexSocket && indexSocket.readyState === WebSocket.OPEN) return;
@@ -70,7 +147,6 @@ function updateIndexPriceDisplay() {
 
   lastIndexPrice = price;
 }
-
 
 function updateDefaultOrderPrices() {
   if (!autoPriceEnabled) return; // 🔒 Lock if user edited
@@ -193,8 +269,9 @@ function connectLtpSocket(callback) {
         `₹${liveLtp.toFixed(2)}`;
       document.getElementById("ltpValue").innerHTML = `₹${liveLtp.toFixed(2)}`;
 
-      // ✅ Auto update Entry / Target / Stoploss
-      updateDefaultOrderPrices();
+      if (autoTradeMode) {
+        updateAutoTrade();
+      }
 
       updateMarginCalculations();
     }
@@ -339,7 +416,6 @@ function highlightButton(id) {
   // 🔥 update price instantly on switch
   updateIndexPriceDisplay();
 }
-
 
 // ----------------------------
 // TOAST
@@ -653,17 +729,49 @@ function updateMarginCalculations() {
 document.addEventListener("DOMContentLoaded", function () {
   loadInstruments();
   connectBalanceSocket();
-  connectIndexSocket();   // 👈 add this
+  connectIndexSocket(); // 👈 index live price
 
   highlightButton("btnNifty");
   resetTradingCalculator();
 
-  // 🔒 Lock auto pricing if user edits any field
-  ["entryPrice", "targetPrice", "stopLossPrice"].forEach((id) => {
+  // 🤖 Enable Auto Trade by default
+  autoTradeMode = true;
+  autoPriceEnabled = true;
+
+  const autoToggle = document.getElementById("autoTradeToggle");
+  if (autoToggle) autoToggle.checked = true;
+
+  // 🔁 Recalculate auto trade when target profit changes
+  const targetProfitEl = document.getElementById("targetProfitInput");
+  if (targetProfitEl) {
+    targetProfitEl.addEventListener("input", () => {
+      if (autoTradeMode) updateAutoTrade();
+    });
+  }
+
+  // 🔒 Switch to Manual mode if user edits any price / lot field
+  ["entryPrice", "targetPrice", "stopLossPrice", "lotsInput"].forEach((id) => {
     const el = document.getElementById(id);
     if (el) {
       el.addEventListener("input", () => {
+        autoTradeMode = false;
         autoPriceEnabled = false;
+
+        const entry =
+          parseFloat(document.getElementById("entryPrice").value) || 0;
+        const stopLoss =
+          parseFloat(document.getElementById("stopLossPrice").value) || 0;
+        const qty =
+          parseInt(document.getElementById("quantityInput").value) || 0;
+
+        if (entry && stopLoss && qty) {
+          updateRiskBox(entry, stopLoss, qty);
+        }
+
+        const toggle = document.getElementById("autoTradeToggle");
+        if (toggle) toggle.checked = false;
+
+        showToast("✍ Manual Trade Mode Enabled");
       });
     }
   });
@@ -696,7 +804,7 @@ document
     }
   });
 
-  // ----------------------------
+// ----------------------------
 // CLEAN DISCONNECT HANDLING
 // ----------------------------
 
@@ -707,11 +815,11 @@ window.addEventListener("beforeunload", function () {
         JSON.stringify({
           action: "unsubscribe",
           instrument_key: selectedInstrument,
-        })
+        }),
       );
       ltpSocket.close();
-    } 
- 
+    }
+
     if (indexSocket && indexSocket.readyState === WebSocket.OPEN) {
       indexSocket.close();
     }
@@ -719,8 +827,22 @@ window.addEventListener("beforeunload", function () {
     if (balanceSocket && balanceSocket.readyState === WebSocket.OPEN) {
       balanceSocket.close();
     }
-
   } catch (err) {
     console.warn("Socket cleanup failed", err);
   }
 });
+
+document
+  .getElementById("autoTradeToggle")
+  .addEventListener("change", function () {
+    autoTradeMode = this.checked;
+
+    if (autoTradeMode) {
+      autoPriceEnabled = true;
+      updateAutoTrade();
+      showToast("🤖 Auto Trade Mode Enabled");
+    } else {
+      autoPriceEnabled = false;
+      showToast("✍ Manual Trade Mode Enabled");
+    }
+  });
