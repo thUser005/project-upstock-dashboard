@@ -10,8 +10,11 @@ class LiveLTPManager:
         # Track only one active instrument at a time
         self.active_instrument = None  
 
-        # Map instrument_key → trading_symbol (for Groww fallback)
+        # Map instrument_key → trading_symbol (for Groww primary)
         self.instrument_to_symbol = {}
+
+        # Reference to MarketFeed (for connection status)
+        self.market_feed = None   # 👈 safe addition (already in your code)
 
     # -------------------------
     # SETTERS
@@ -21,6 +24,10 @@ class LiveLTPManager:
 
     def set_loop(self, loop):
         self.loop = loop
+
+    # 👇 MarketFeed connector
+    def set_market_feed(self, market_feed):
+        self.market_feed = market_feed
 
     # -------------------------
     # CLIENT HANDLING
@@ -37,7 +44,7 @@ class LiveLTPManager:
     # -------------------------
     def subscribe(self, instrument, trading_symbol=None):
 
-        # Store trading symbol for Groww fallback
+        # Store trading symbol for Groww PRIMARY
         if trading_symbol:
             self.instrument_to_symbol[instrument] = trading_symbol
 
@@ -50,13 +57,11 @@ class LiveLTPManager:
             self.subscribed.add(instrument)
             self.active_instrument = instrument
 
-            print(f"📡 Subscribing to Upstox for: {instrument}")
+            # Groww is PRIMARY
+            print(f"🟢 Subscribed to Groww primary for: {trading_symbol or instrument}")
 
-            if self.streamer:
-                try:
-                    self.streamer.subscribe([instrument], "ltpc")
-                except Exception as e:
-                    print(f"❌ Subscription Error: {e}")
+            # ⚠ Do NOT touch Upstox here
+            # Upstox is fallback only and will be activated by MarketFeed
 
     # -------------------------
     # UNSUBSCRIBE
@@ -65,13 +70,15 @@ class LiveLTPManager:
         if instrument in self.subscribed:
             self.subscribed.remove(instrument)
 
-            print(f"🛑 Unsubscribing from Upstox for: {instrument}")
+            print(f"🛑 Unsubscribing: {instrument}")
 
-            if self.streamer:
-                try:
-                    self.streamer.unsubscribe([instrument])
-                except Exception as e:
-                    print(f"❌ Unsubscribe Error: {e}")
+            # Only unsubscribe from Upstox if fallback is active
+            if self.market_feed and self.market_feed.upstox_connected:
+                if self.streamer:
+                    try:
+                        self.streamer.unsubscribe([instrument])
+                    except Exception as e:
+                        print(f"❌ Unsubscribe Error: {e}")
 
         if self.active_instrument == instrument:
             self.active_instrument = None
@@ -105,7 +112,7 @@ class LiveLTPManager:
                 pass
 
     # -------------------------
-    # Groww fallback helper
+    # Groww primary helper
     # -------------------------
     def get_trading_symbol(self, instrument):
         return self.instrument_to_symbol.get(instrument)

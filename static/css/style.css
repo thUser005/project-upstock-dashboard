@@ -378,3 +378,23 @@
           margin-bottom: 10px;
         }
       }
+
+      .index-price-box {
+  background: linear-gradient(135deg, #00ff88, #00cc70);
+  padding: 6px 14px;
+  border-radius: 8px;
+  color: #000;
+  font-weight: bold;
+  font-size: 20px;
+  box-shadow: 0 0 12px rgba(0,255,136,0.4);
+}
+
+.index-price-label {
+  font-size: 12px;
+  opacity: 0.7;
+  margin-right: 6px;
+}
+
+.index-price-value {
+  font-size: 22px;
+}

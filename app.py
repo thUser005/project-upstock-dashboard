@@ -14,6 +14,7 @@ import asyncio
 import upstox_client
 from upstox_client.rest import ApiException
 
+
 from config import UPSTOX_ACCESS_TOKEN, MOBILE_NUM, api_client
 from instruments import bootstrap_instruments, FILTERED_INSTRUMENTS, ALL_INSTRUMENTS
 from token_validator import is_token_valid,update_access_token
@@ -25,6 +26,7 @@ from utils.gtt.place_gtt_order import place_gtt_order
 from utils.gtt.modify_gtt_order import modify_gtt_order
 from utils.gtt.cancel_gtt_order import cancel_gtt_order
 from utils.gtt.get_gtt_order_details import get_gtt_order_details
+from utils.live_candle_manager import candle_manager
 
 from datetime import datetime
 from config import gtt_collection
@@ -270,13 +272,21 @@ async def websocket_balance(websocket: WebSocket):
             await asyncio.sleep(10)  # send every 10 seconds
 
             valid, msg = is_token_valid()
+        #     return True, None
+        # elif r.status_code == 423:
+                    
             if not valid:
+                
                 await websocket.send_json({
                     "status": "error",
                     "message": msg
                 })
                 continue
-
+            if valid and msg=='server_down':
+                await websocket.send_json({
+                                    "status": "success",
+                                    "balance": "150000"
+                                }) 
             response = user_api.get_user_fund_margin("2.0").to_dict()
             
             avail_bal = response.get("data").get("equity").get("available_margin")
@@ -291,6 +301,22 @@ async def websocket_balance(websocket: WebSocket):
     finally:
         balance_clients.remove(websocket)
 
+@app.websocket("/ws/index")
+async def websocket_index_feed(websocket: WebSocket):
+    await websocket.accept()
+
+    # register client
+    candle_manager.nse_clients.add(websocket)
+    candle_manager.bse_clients.add(websocket)
+
+    try:
+        while True:
+            await asyncio.sleep(1)   # keep connection alive
+    except:
+        pass
+    finally:
+        candle_manager.nse_clients.discard(websocket)
+        candle_manager.bse_clients.discard(websocket)
 
 # -----------------------
 # LIVE LTP WEBSOCKET (UNCHANGED)
@@ -300,16 +326,38 @@ async def websocket_ltp(websocket: WebSocket):
     await websocket.accept()
     ltp_manager.add_client(websocket)
 
+    client_instruments = set()   # track per client
+
     try:
         while True:
             data = await websocket.receive_json()
-            if data["action"] == "subscribe":
-                ltp_manager.subscribe(
-                    data["instrument_key"],
-                    data.get("trading_symbol")
-                )
-                ltp_manager.subscribe(data["instrument_key"])
-    except:
+            print(data)
+
+            action = data.get("action")
+            token = data.get("instrument_key")
+            symbol = data.get("trading_symbol")
+
+            if action == "subscribe":
+                ltp_manager.subscribe(token, symbol)
+                client_instruments.add(token)
+
+                print(f"🔔 Subscribed: {symbol}")
+
+            elif action == "unsubscribe":
+                ltp_manager.unsubscribe(token)
+                client_instruments.discard(token)
+
+                print(f"🔕 Unsubscribed: {token}")
+
+    except Exception as e:
+        print("🔌 Client disconnected")
+
+    finally:
+        # auto cleanup on tab close / refresh / network loss
+        for token in client_instruments:
+            ltp_manager.unsubscribe(token)
+            print(f"🔕 Auto-unsubscribed: {token}")
+
         ltp_manager.remove_client(websocket)
 
 
@@ -340,6 +388,13 @@ async def startup_event():
 
     loop = asyncio.get_running_loop()
     ltp_manager.set_loop(loop)
+    candle_manager.set_loop(loop)
 
+    # Start live feeds
     start_market_feed()
-    print("🚀 Application and Market Feed initializing...")
+
+    # Start index candle streams
+    asyncio.create_task(candle_manager.start_nse_stream())
+    asyncio.create_task(candle_manager.start_bse_stream())
+
+    print("🚀 Application, Market Feed & Index Streams started...")

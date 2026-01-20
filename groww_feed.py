@@ -9,7 +9,7 @@ def start_alternative_feed(trading_symbol):
     """
 
     try:
-        print(f"🔁 Switching to Groww fallback feed for {trading_symbol}")
+        # print(f"🔁 Switching to Groww fallback feed for {trading_symbol}")
 
         # Search Groww option
         possible_options = search_groww_option(trading_symbol)
@@ -26,9 +26,8 @@ def start_alternative_feed(trading_symbol):
 
         # Fetch latest candle
         candle = get_latest_option_candle(option_id)
-        print(candle)
         if candle:
-            print(f"📊 Groww Fallback Price: {option_id} @ {candle['price']}")
+            # print(f"📊 Groww Fallback Price: {option_id} @ {candle['price']}")
             return candle["price"]
 
         print("❌ Groww: Candle data not available")

@@ -15,6 +15,63 @@ const CACHE_VERSION = "v2";
 // Dummy values
 let BALANCE = 0;
 
+let indexSocket = null;
+let niftySpot = 0;
+let sensexSpot = 0;
+let lastIndexPrice = 0;   // 👈 add here
+
+
+function connectIndexSocket() {
+  if (indexSocket && indexSocket.readyState === WebSocket.OPEN) return;
+
+  indexSocket = new WebSocket(getWsBaseUrl() + "/ws/index");
+
+  indexSocket.onopen = function () {
+    console.log("✅ Index socket connected");
+  };
+
+  indexSocket.onmessage = function (event) {
+    const data = JSON.parse(event.data);
+
+    if (data.exchange === "NSE") {
+      niftySpot = data.price;
+    }
+
+    if (data.exchange === "BSE") {
+      sensexSpot = data.price;
+    }
+
+    updateIndexPriceDisplay();
+  };
+
+  indexSocket.onerror = function (err) {
+    console.error("❌ Index socket error", err);
+  };
+
+  indexSocket.onclose = function () {
+    console.warn("⚠ Index socket closed, retrying...");
+    setTimeout(connectIndexSocket, 3000);
+  };
+}
+
+function updateIndexPriceDisplay() {
+  const priceEl = document.getElementById("indexLivePrice");
+  if (!priceEl) return;
+
+  let price = selectedIndex === "NIFTY" ? niftySpot : sensexSpot;
+  if (!price) return;
+
+  priceEl.innerText = price.toFixed(2);
+
+  if (lastIndexPrice) {
+    if (price > lastIndexPrice) priceEl.style.color = "#00ff88"; // green
+    if (price < lastIndexPrice) priceEl.style.color = "#ff5555"; // red
+  }
+
+  lastIndexPrice = price;
+}
+
+
 function updateDefaultOrderPrices() {
   if (!autoPriceEnabled) return; // 🔒 Lock if user edited
   if (!liveLtp || liveLtp <= 0) return;
@@ -266,11 +323,9 @@ function highlightButton(id) {
   const sensexBtn = document.getElementById("btnSensex");
   const label = document.getElementById("selectedIndexLabel");
 
-  // Remove active from both
   niftyBtn.classList.remove("active");
   sensexBtn.classList.remove("active");
 
-  // Add active to selected
   if (id === "btnNifty") {
     niftyBtn.classList.add("active");
     selectedIndex = "NIFTY";
@@ -279,9 +334,12 @@ function highlightButton(id) {
     selectedIndex = "SENSEX";
   }
 
-  // Update label
-  label.innerText = `${selectedIndex}`;
+  label.innerText = selectedIndex;
+
+  // 🔥 update price instantly on switch
+  updateIndexPriceDisplay();
 }
+
 
 // ----------------------------
 // TOAST
@@ -595,6 +653,8 @@ function updateMarginCalculations() {
 document.addEventListener("DOMContentLoaded", function () {
   loadInstruments();
   connectBalanceSocket();
+  connectIndexSocket();   // 👈 add this
+
   highlightButton("btnNifty");
   resetTradingCalculator();
 
@@ -635,3 +695,32 @@ document
       showToast("⚠ Server error while placing GTT");
     }
   });
+
+  // ----------------------------
+// CLEAN DISCONNECT HANDLING
+// ----------------------------
+
+window.addEventListener("beforeunload", function () {
+  try {
+    if (ltpSocket && ltpSocket.readyState === WebSocket.OPEN) {
+      ltpSocket.send(
+        JSON.stringify({
+          action: "unsubscribe",
+          instrument_key: selectedInstrument,
+        })
+      );
+      ltpSocket.close();
+    }
+
+    if (indexSocket && indexSocket.readyState === WebSocket.OPEN) {
+      indexSocket.close();
+    }
+
+    if (balanceSocket && balanceSocket.readyState === WebSocket.OPEN) {
+      balanceSocket.close();
+    }
+
+  } catch (err) {
+    console.warn("Socket cleanup failed", err);
+  }
+});

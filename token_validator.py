@@ -75,7 +75,10 @@ def is_token_valid():
     try:
         r = requests.get(url, headers=headers, timeout=10)
 
-        if r.status_code == 200:
+        if r.status_code == 423:
+            return True, "server_down"
+            
+        elif r.status_code == 200:
             return True, None
 
         elif r.status_code == 401:
